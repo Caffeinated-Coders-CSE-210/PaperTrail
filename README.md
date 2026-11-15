@@ -4,6 +4,32 @@
 
 PaperTrail is a course project developed for UCSD CSE 210: Principles of Software Engineering. It aims to help users discover, save, and organize research papers while exploring AT Protocol for user authentication and user-owned data.
 
+## Run locally
+
+Use Node.js 22.12+ on the 22.x line, or Node.js 24+. From the repository root:
+
+```sh
+npm ci
+npm run dev
+```
+
+Open the local URL printed by Vite. The setup runs without credentials. Use `npm run build` to type-check and generate `dist/`, then `npm run preview` to serve the build.
+
+## Start a feature
+
+The first demo follows sign-in → search → details → bookmark → saved papers. This setup provides the page shells and TypeScript contracts for parallel development.
+
+| Route | Page entry | Team issue |
+| --- | --- | --- |
+| `/` | `src/features/auth/HomePage.tsx` | [AT Protocol login #4](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/4) |
+| `/search` | `src/features/discovery/SearchPage.tsx` | [OpenAlex discovery #12](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/12) |
+| `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 |
+| `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
+
+To check routing, open **Search**, follow **Preview paper details**, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
+
+See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
+
 ## Project Goals
 
 - Make research papers easier to discover, save, and discuss.
