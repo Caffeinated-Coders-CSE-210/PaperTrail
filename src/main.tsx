@@ -2,12 +2,22 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { App } from './App'
+import { AuthProvider } from './features/auth/AuthProvider'
 import './styles.css'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </StrictMode>,
-)
+if (window.location.protocol === 'http:' && window.location.hostname === 'localhost') {
+  // OAuth stores authorization state on the same origin that handles the callback.
+  const loopbackUrl = new URL(window.location.href)
+  loopbackUrl.hostname = '127.0.0.1'
+  window.location.replace(loopbackUrl)
+} else {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </StrictMode>,
+  )
+}
