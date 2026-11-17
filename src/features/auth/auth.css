@@ -1,0 +1,50 @@
+.auth-panel {
+  max-width: 28rem;
+  margin-block: 1.75rem 2rem;
+}
+
+.auth-form {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.auth-form label {
+  font-weight: 600;
+}
+
+.auth-panel input,
+.auth-panel button {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  font: inherit;
+}
+
+.auth-panel input {
+  min-width: 0;
+  color: inherit;
+  background: white;
+}
+
+.auth-panel button {
+  justify-self: start;
+  color: white;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.auth-panel button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.auth-panel input:focus-visible,
+.auth-panel button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.auth-panel .auth-error {
+  margin: 1rem 0 0;
+  color: #8d302c;
+}

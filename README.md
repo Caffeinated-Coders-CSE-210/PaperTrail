@@ -10,14 +10,14 @@ Use Node.js 22.12+ on the 22.x line, or Node.js 24+. From the repository root:
 
 ```sh
 npm ci
-npm run dev
+npm run dev -- --host 127.0.0.1
 ```
 
-Open the local URL printed by Vite. The setup runs without credentials. Use `npm run build` to type-check and generate `dist/`, then `npm run preview` to serve the build.
+Open the `http://127.0.0.1` URL printed by Vite. On Home, enter your AT Protocol handle to begin sign-in. To preview a production build locally, run `npm run build` followed by `npm run preview -- --host 127.0.0.1`. See [Authentication](docs/authentication.md) for OAuth deployment setup.
 
 ## Start a feature
 
-The first demo follows sign-in → search → details → bookmark → saved papers. This setup provides the page shells and TypeScript contracts for parallel development.
+The first demo follows sign-in → search → details → bookmark → saved papers. The sign-in flow is on Home. Search, details, and saved papers have page shells and TypeScript contracts for parallel development.
 
 | Route | Page entry | Team issue |
 | --- | --- | --- |

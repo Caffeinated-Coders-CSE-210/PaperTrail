@@ -39,8 +39,7 @@ flowchart TD
 
 ## AT Protocol Login and Records
 
-- **OAuth:** AT Protocol OAuth 2.0, including sign-in with existing AT Protocol identities such as Bluesky accounts.
-- **SDKs considered:** `@atproto/oauth-client-browser` for login/session management and `@atproto/api` for AT Protocol services and repositories.
+- **OAuth:** `@atproto/oauth-client-browser` handles sign-in with AT Protocol identities, session restoration, and sign-out. React features read the active identity through `useAuth()`. See [Authentication](authentication.md) for local setup, deployment, and the handoff to other features.
 - **PDS:** Public PaperTrail records would be stored in users' AT Protocol repositories.
 - **Lexicons:** PaperTrail would define its own record schemas for app-specific data.
 
