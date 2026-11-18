@@ -96,6 +96,14 @@ async function fetchOpenAlex(path: string, params = new URLSearchParams()): Prom
   return response
 }
 
+export async function listDefaultPapers(): Promise<Paper[]> {
+  const params = new URLSearchParams({ per_page: '20' })
+  const response = await fetchOpenAlex('/works', params)
+  const data: OpenAlexSearchResponse = await response.json()
+  if (!Array.isArray(data.results)) throw new Error('Unexpected response from OpenAlex')
+  return data.results.map(normalizePaper)
+}
+
 export const openAlexPaperService: PaperService = {
   async searchPapers(query, searchType: SearchType = 'paper') {
     const text = query.trim()

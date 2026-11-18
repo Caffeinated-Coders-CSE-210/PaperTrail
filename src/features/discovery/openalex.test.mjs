@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizePaper, openAlexPaperService } from './openalex.ts'
+import { listDefaultPapers, normalizePaper, openAlexPaperService } from './openalex.ts'
 
 const work = {
   id: 'https://openalex.org/W2741809807',
@@ -62,6 +62,26 @@ test('uses separate OpenAlex parameters for paper and author searches', async ()
     assert.equal(urls[1].searchParams.get('filter'), 'raw_author_name.search:"Geoffrey Hinton"')
     assert.deepEqual(await openAlexPaperService.searchPapers('  '), [])
     assert.equal(urls.length, 2)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('loads default papers without a search query or author filter', async () => {
+  const originalFetch = globalThis.fetch
+  let requestedUrl
+  globalThis.fetch = async (url) => {
+    requestedUrl = new URL(url)
+    return new Response(JSON.stringify({ results: [work] }), { status: 200 })
+  }
+  try {
+    const papers = await listDefaultPapers()
+    assert.equal(papers.length, 1)
+    assert.equal(papers[0].id, 'W2741809807')
+    assert.equal(requestedUrl.pathname, '/works')
+    assert.equal(requestedUrl.searchParams.get('per_page'), '20')
+    assert.equal(requestedUrl.searchParams.has('search'), false)
+    assert.equal(requestedUrl.searchParams.has('filter'), false)
   } finally {
     globalThis.fetch = originalFetch
   }

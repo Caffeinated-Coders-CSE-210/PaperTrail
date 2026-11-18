@@ -31,7 +31,7 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 | `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 |
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
 
-To check routing, open **Search**, follow **Preview paper details**, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
+To check routing, open **Search**, select a paper from the list, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
 
