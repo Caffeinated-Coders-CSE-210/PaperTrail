@@ -15,6 +15,11 @@ npm run dev -- --host 127.0.0.1
 
 Open the `http://127.0.0.1` URL printed by Vite. On Home, enter your AT Protocol handle to begin sign-in. To preview a production build locally, run `npm run build` followed by `npm run preview -- --host 127.0.0.1`. See [Authentication](docs/authentication.md) for OAuth deployment setup.
 
+Paper discovery uses [OpenAlex](https://help.openalex.org/api/), which supports keyless API requests. For more reliable local testing, you can optionally add `VITE_OPENALEX_API_KEY=your_api_key` to a repository-root `.env.local` file and restart Vite.
+
+> [!WARNING]
+> Do not commit API keys or use a personal `VITE_` key in a public deployment: Vite exposes these variables to the browser. See [OpenAlex API Integration](docs/openalex.md) for search behavior and data mapping.
+
 ## Start a feature
 
 The first demo follows sign-in → search → details → bookmark → saved papers. The sign-in flow is on Home. Search, details, and saved papers have page shells and TypeScript contracts for parallel development.
@@ -26,7 +31,7 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 | `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 |
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
 
-To check routing, open **Search**, follow **Preview paper details**, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
+To check routing, open **Search**, select a paper from the list, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
 
@@ -96,6 +101,8 @@ More details are in [Architecture](docs/architecture.md) and [Architecture Decis
 - [PR template](.github/pull_request_template.md): a template to keep pull requests consistent and easy to review.
 - [Architecture](docs/architecture.md): an overview of the proposed system architecture and tech stack.
 - [Decisions](docs/decisions.md): proposed technical decisions and the reasoning behind them.
+- [Authentication](docs/authentication.md): AT Protocol OAuth sign-in, local development, HTTPS deployment, and auth state integration.
+- [OpenAlex API Integration](docs/openalex.md): paper search, data mapping, and API configuration.
 
 ## License
 

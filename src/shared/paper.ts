@@ -9,6 +9,10 @@ export interface Paper {
   abstract: string | null
   doi: string | null
   url: string | null
+  publicationDate: string | null
+  researchArea: string | null
+  keywords: string[]
+  pdfUrl: string | null
 }
 
 export function paperPath(id: PaperId) {
