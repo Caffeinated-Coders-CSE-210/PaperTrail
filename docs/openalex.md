@@ -66,12 +66,17 @@ Here's what happens when a request fails:
 
 ## Current Limitations
 
-Browse and search fetch 20 papers per page. Previous/Next navigation preserves the
-submitted query and mode; a new search or Clear returns to page 1. Next is disabled
-after a short response. If the last batch has exactly 20 papers, the next page can
-be empty; Previous remains available. We do not fetch total counts or use cursor
-pagination for exhaustive exports. Requests still depend on OpenAlex availability
-and rate limits.
+Browse and search request only the first API page (up to 20 papers), then show four
+cards per display page. Pagination controls sit above the cards. Previous/Next slices the loaded results in the browser and
+makes no additional requests. The controls show the current and total display
+pages and stop at the final page, including a partially filled page. A new search
+or Clear fetches a fresh batch and resets the display to page 1.
+
+The UI explains the 20-paper limit: refine the search for different results.
+Client-side pagination does not reach results beyond the first API batch. The
+adapter still accepts optional API page arguments for other callers, but Browse
+always requests API page 1. Requests still depend on OpenAlex availability and
+rate limits.
 
 For issue #2, the catalog consists of OpenAlex works, not community uploads. There
 is no local draft/published status. Cards show metadata and an abstract preview;
