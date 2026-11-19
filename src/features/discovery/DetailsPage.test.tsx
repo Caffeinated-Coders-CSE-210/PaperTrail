@@ -30,6 +30,19 @@ test('loads metadata from a direct details URL and links back to Browse', async 
     expect(screen.getByText(text)).toBeTruthy()
   }
   expect(screen.getByRole('link', { name: 'Back to Browse' }).getAttribute('href')).toBe('/search')
+  expect(screen.getByText('Full-text link unavailable')).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'Read full text' })).toBeNull()
+})
+
+test.each([
+  { source: 'PDF when available', pdfUrl: 'https://example.org/paper.pdf', expected: 'https://example.org/paper.pdf' },
+  { source: 'landing page when no PDF is available', pdfUrl: null, expected: 'https://example.org/paper' },
+])('links to the $source', async ({ pdfUrl, expected }) => {
+  const paper = makePaper({ pdfUrl, url: 'https://example.org/paper' })
+  setup(vi.fn(async () => paper))
+  const link = await screen.findByRole('link', { name: 'Read full text' })
+  expect(link.getAttribute('href')).toBe(expected)
+  expect(screen.queryByText('Full-text link unavailable')).toBeNull()
 })
 
 test('shows a missing paper message and retains the Browse link', async () => {

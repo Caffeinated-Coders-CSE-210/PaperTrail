@@ -10,6 +10,7 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
   const [paper, setPaper] = useState<Paper | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fullTextUrl = paper?.pdfUrl ?? paper?.url
 
   useEffect(() => {
     let active = true
@@ -46,6 +47,11 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
           <p>{paper.abstract ?? 'Abstract unavailable'}</p>
           <h2>Keywords</h2>
           <p>{paper.keywords.join(', ') || 'Keywords unavailable'}</p>
+          <p>
+            {fullTextUrl
+              ? <a href={fullTextUrl}>Read full text</a>
+              : 'Full-text link unavailable'}
+          </p>
           {/* Mount BookmarkButton with paper here when the bookmarks feature is ready. */}
           {/* PdfReader can receive paper.pdfUrl, paper.title, and paper.url from here. */}
         </>
