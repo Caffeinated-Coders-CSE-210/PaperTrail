@@ -8,8 +8,9 @@ The `openAlexPaperService` follows the `PaperService` interface in `src/features
 
 | Method | OpenAlex request | What it does |
 | --- | --- | --- |
-| `searchPapers(query, 'paper')` | `GET /works?search=<query>&per_page=20` | Searches papers using OpenAlex's general search. It is not limited to exact title matches. This is the default mode. |
-| `searchPapers(query, 'author')` | `GET /works?filter=raw_author_name.search:"<query>"&per_page=20` | Finds papers by the author's name. |
+| `listDefaultPapers(page = 1)` | `GET /works?page=<page>&per_page=20` | Lists the default catalog for browsing. Also available on `openAlexPaperService`. |
+| `searchPapers(query, 'paper', page = 1)` | `GET /works?search=<query>&page=<page>&per_page=20` | Searches papers using OpenAlex's general search. It is not limited to exact title matches. This is the default mode. |
+| `searchPapers(query, 'author', page = 1)` | `GET /works?filter=raw_author_name.search:"<query>"&page=<page>&per_page=20` | Finds papers by the author's name. |
 | `getPaperById(id)` | `GET /works/<work-id>` | Gets one paper using its OpenAlex work ID (`W...`). Returns `null` if OpenAlex responds with 404. |
 
 We trim the search text before sending it. If the input is empty, `searchPapers()` returns an empty array without making a request. OpenAlex handles case-insensitive matching for both search modes.
@@ -65,4 +66,19 @@ Here's what happens when a request fails:
 
 ## Current Limitations
 
-We currently fetch only the first 20 search results, without API pagination. Search also depends on OpenAlex being available, and keyless requests may be limited when their servers are busy.
+Browse and search request only the first API page (up to 20 papers), then show four
+cards per display page. Pagination controls sit above the cards. Previous/Next slices the loaded results in the browser and
+makes no additional requests. The controls show the current and total display
+pages and stop at the final page, including a partially filled page. A new search
+or Clear fetches a fresh batch and resets the display to page 1.
+
+The UI explains the 20-paper limit: refine the search for different results.
+Client-side pagination does not reach results beyond the first API batch. The
+adapter still accepts optional API page arguments for other callers, but Browse
+always requests API page 1. Requests still depend on OpenAlex availability and
+rate limits.
+
+For issue #2, the catalog consists of OpenAlex works, not community uploads. There
+is no local draft/published status. Cards show metadata and an abstract preview;
+details load the full metadata by route ID. PDF rendering and bookmarks are
+separate feature integrations.

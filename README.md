@@ -6,7 +6,7 @@ PaperTrail is a course project developed for UCSD CSE 210: Principles of Softwar
 
 ## Run locally
 
-Use Node.js 22.12+ on the 22.x line, or Node.js 24+. From the repository root:
+Use Node.js 22.22.2+ on the 22.x line, 24.15+ on the 24.x line, or 26+ (the component test environment requires these versions). From the repository root:
 
 ```sh
 npm ci
@@ -22,7 +22,7 @@ Paper discovery uses [OpenAlex](https://help.openalex.org/api/), which supports 
 
 ## Start a feature
 
-The first demo follows sign-in → search → details → bookmark → saved papers. The sign-in flow is on Home. Search, details, and saved papers have page shells and TypeScript contracts for parallel development.
+The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Bookmarks and saved papers remain integration work.
 
 | Route | Page entry | Team issue |
 | --- | --- | --- |
@@ -31,7 +31,12 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 | `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 |
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
 
-To check routing, open **Search**, select a paper from the list, and refresh. The example work ID stays visible. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
+To check routing, open **Search**, select a paper card, and refresh. Its metadata reloads from OpenAlex. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
+
+Run `npm test` for the Node service tests and Vitest component tests, then
+`npm run build` for typechecking and a production build. Tests live beside their
+features. See [Browse development](docs/browse-development.md) for the incremental
+test record and integration notes for issue #2.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
 

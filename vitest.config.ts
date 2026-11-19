@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     environmentOptions: { jsdom: { url: 'https://papertrail.test' } },
-    include: ['src/features/reader/**/*.test.tsx'],
+    include: ['src/features/**/*.test.tsx'],
     restoreMocks: true,
   },
 })

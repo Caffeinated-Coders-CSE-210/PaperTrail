@@ -64,19 +64,26 @@ main .search-error {
 }
 
 .search-result-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  gap: 1rem;
   list-style: none;
   padding: 0;
   margin: 0 0 2rem;
-  max-width: 55rem;
 }
 
-.search-result-list li {
-  padding-block: 0.9rem;
-  border-bottom: 1px solid var(--rule);
+.search-pagination { align-items: center; margin-top: 1.5rem; }
+.search-pagination button {
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.3rem;
+  color: var(--accent);
+  background: white;
+  font: inherit;
+  cursor: pointer;
 }
-
-.search-result-list a { font-weight: 600; }
-.search-result-meta { display: block; margin-top: 0.3rem; }
+.search-pagination button:disabled { opacity: 0.6; cursor: not-allowed; }
+.search-pagination button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 @media (max-width: 36rem) {
   .search-bar { gap: 0.6rem; }

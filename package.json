@@ -4,30 +4,31 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": "^22.13.0 || >=24.0.0"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "test": "npm run test:unit && npm run test:reader",
+    "test": "npm run test:unit && npm run test:components",
     "test:unit": "node --experimental-strip-types --test src/features/*/*.test.mjs",
-    "test:reader": "vitest run",
+    "test:components": "vitest run",
+    "test:reader": "vitest run src/features/reader/",
     "build:reader": "tsc --project tests/reader/tsconfig.json && vite build --config tests/reader/vite.config.ts --outDir dist/reader-checks"
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.5.14",
     "@atproto/syntax": "^0.7.7",
-    "pdfjs-dist": "6.5.438",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-router": "^7.0.0",
     "react-pdf": "11.1.0",
-    "react-router": "^7.0.0"
+    "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.12",
+    "@testing-library/user-event": "^14.6.13",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",

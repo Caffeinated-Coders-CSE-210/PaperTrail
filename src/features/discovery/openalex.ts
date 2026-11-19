@@ -1,5 +1,5 @@
 import type { Paper, PaperId } from '../../shared/paper'
-import type { PaperService, SearchType } from './service'
+import { PAPER_PAGE_SIZE, type PaperService, type SearchType } from './service.ts'
 
 const OPENALEX_API_URL = 'https://api.openalex.org'
 
@@ -96,8 +96,8 @@ async function fetchOpenAlex(path: string, params = new URLSearchParams()): Prom
   return response
 }
 
-export async function listDefaultPapers(): Promise<Paper[]> {
-  const params = new URLSearchParams({ per_page: '20' })
+export async function listDefaultPapers(page = 1): Promise<Paper[]> {
+  const params = new URLSearchParams({ per_page: String(PAPER_PAGE_SIZE), page: String(page) })
   const response = await fetchOpenAlex('/works', params)
   const data: OpenAlexSearchResponse = await response.json()
   if (!Array.isArray(data.results)) throw new Error('Unexpected response from OpenAlex')
@@ -105,11 +105,12 @@ export async function listDefaultPapers(): Promise<Paper[]> {
 }
 
 export const openAlexPaperService: PaperService = {
-  async searchPapers(query, searchType: SearchType = 'paper') {
+  listDefaultPapers,
+  async searchPapers(query, searchType: SearchType = 'paper', page = 1) {
     const text = query.trim()
     if (!text) return []
 
-    const params = new URLSearchParams({ per_page: '20' })
+    const params = new URLSearchParams({ per_page: String(PAPER_PAGE_SIZE), page: String(page) })
     if (searchType === 'author') {
       const author = text.replace(/"/g, '')
       if (!author.trim()) return []
