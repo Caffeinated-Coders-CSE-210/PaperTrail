@@ -5,6 +5,9 @@ import { DetailsPage } from './DetailsPage'
 import { makePaper } from './testFixtures'
 import type { PaperService } from './service'
 
+// Reader behavior is covered by DetailsPage.reader.test.tsx and reader tests.
+vi.mock('../reader/PdfReader', () => ({ PdfReader: () => null }))
+
 afterEach(cleanup)
 
 function setup(getPaperById: PaperService['getPaperById']) {
