@@ -1,100 +1,87 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
 import type { Paper } from '../../shared/paper'
-import { paperPath } from '../../shared/paper'
-import { listDefaultPapers, openAlexPaperService } from './openalex'
+import { openAlexPaperService } from './openalex'
+import { PaperCard } from './PaperCard'
 import { SearchBar } from './SearchBar'
-import type { SearchType } from './service'
+import { PAPER_PAGE_SIZE, type PaperService, type SearchType } from './service'
 
 type SearchStatus = 'loading' | 'success' | 'error'
+const CARDS_PER_PAGE = 4
 
-export function SearchPage() {
+export function SearchPage({ service = openAlexPaperService }: { service?: PaperService }) {
+  const [request, setRequest] = useState({ query: '', searchType: 'paper' as SearchType })
+  const [page, setPage] = useState(1)
+  const lastRequest = useRef<{
+    request: typeof request
+    service: PaperService
+    result: Promise<Paper[]>
+  } | null>(null)
   const [status, setStatus] = useState<SearchStatus>('loading')
   const [papers, setPapers] = useState<Paper[]>([])
   const [error, setError] = useState<string | null>(null)
-  const requestId = useRef(0)
-  const defaultPapers = useRef<Paper[] | null>(null)
-  const defaultRequest = useRef<Promise<Paper[]> | null>(null)
-  const [showingDefault, setShowingDefault] = useState(true)
-
-  async function loadDefaultPapers() {
-    const id = ++requestId.current
-    setShowingDefault(true)
-    setStatus('loading')
-    setError(null)
-
-    try {
-      if (!defaultRequest.current) defaultRequest.current = listDefaultPapers()
-      const results = await defaultRequest.current
-      if (id !== requestId.current) return
-      defaultPapers.current = results
-      setPapers(results)
-      setStatus('success')
-    } catch (reason) {
-      defaultRequest.current = null
-      if (id !== requestId.current) return
-      setError(reason instanceof Error ? reason.message : 'Unable to load papers. Please try again.')
-      setStatus('error')
-    }
-  }
+  const showingDefault = !request.query
+  const pageCount = Math.max(1, Math.ceil(papers.length / CARDS_PER_PAGE))
+  const visiblePapers = papers.slice((page - 1) * CARDS_PER_PAGE, page * CARDS_PER_PAGE)
 
   useEffect(() => {
-    void loadDefaultPapers()
-    return () => { requestId.current += 1 }
-  }, [])
-
-  async function search(query: string, searchType: SearchType) {
-    const id = ++requestId.current
-    setShowingDefault(false)
+    let active = true
+    setPage(1)
     setStatus('loading')
     setError(null)
-    setPapers([])
-
-    try {
-      const results = await openAlexPaperService.searchPapers(query, searchType)
-      if (id !== requestId.current) return
-      setPapers(results)
-      setStatus('success')
-    } catch (reason) {
-      if (id !== requestId.current) return
-      setError(reason instanceof Error ? reason.message : 'Unable to search papers. Please try again.')
-      setStatus('error')
+    // StrictMode repeats effects on startup; reuse that request instead of fetching twice.
+    if (lastRequest.current?.request !== request || lastRequest.current.service !== service) {
+      const result = request.query
+        ? service.searchPapers(request.query, request.searchType, 1)
+        : service.listDefaultPapers(1)
+      lastRequest.current = { request, service, result }
     }
-  }
 
-  function clear() {
-    requestId.current += 1
-    setError(null)
-    setShowingDefault(true)
-    if (defaultPapers.current !== null) {
-      setPapers(defaultPapers.current)
-      setStatus('success')
-    } else {
-      void loadDefaultPapers()
-    }
-  }
+    void lastRequest.current.result.then(
+      (papers) => {
+        if (!active) return
+        setPapers(papers)
+        setStatus('success')
+      },
+      (reason) => {
+        if (!active) return
+        setError(reason instanceof Error ? reason.message : 'Unable to load papers. Please try again.')
+        setStatus('error')
+      },
+    )
+    return () => { active = false }
+  }, [request, service])
 
   return (
     <>
-      <h1>Search results</h1>
-      <SearchBar onSearch={(query, searchType) => void search(query, searchType)} onClear={clear} loading={status === 'loading'} />
+      <h1>Browse papers</h1>
+      <SearchBar
+        onSearch={(query, searchType) => setRequest({ query, searchType })}
+        onClear={() => setRequest({ query: '', searchType: 'paper' })}
+        loading={status === 'loading'}
+      />
+      <nav className="search-pagination" aria-label="Paper pages">
+        <button
+          type="button"
+          disabled={status !== 'success' || page === 1}
+          onClick={() => setPage(page - 1)}
+        >Previous</button>
+        <span>Page {page} of {pageCount}</span>
+        <button
+          type="button"
+          disabled={status !== 'success' || page === pageCount}
+          onClick={() => setPage(page + 1)}
+        >Next</button>
+      </nav>
       {status === 'loading' && <p role="status">{showingDefault ? 'Loading papers...' : 'Searching papers...'}</p>}
       {status === 'error' && <p className="search-error" role="alert">{error}</p>}
       {status === 'success' && (
         papers.length === 0 ? (
           <p role="status">{showingDefault ? 'No papers available right now.' : 'No papers found. Try a different search term.'}</p>
         ) : (
-          <section aria-label="Search results">
+          <section aria-label="Papers">
+            <p>Showing up to {PAPER_PAGE_SIZE} papers. Refine your search for different results.</p>
             <ul className="search-result-list">
-              {papers.map((paper) => (
-                <li key={paper.id}>
-                  <Link to={paperPath(paper.id)}>{paper.title}</Link>
-                  <span className="search-result-meta">
-                    {paper.authors.length ? paper.authors.join(', ') : 'Authors unavailable'}
-                    {paper.year !== null && ` · ${paper.year}`}
-                  </span>
-                </li>
-              ))}
+              {visiblePapers.map((paper) => <li key={paper.id}><PaperCard paper={paper} /></li>)}
             </ul>
           </section>
         )
