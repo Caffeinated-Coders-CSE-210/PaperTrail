@@ -59,6 +59,7 @@ test('uses separate OpenAlex parameters for paper and author searches', async ()
     assert.equal((await openAlexPaperService.searchPapers(' computer vision '))[0].id, 'W2741809807')
     assert.equal((await openAlexPaperService.searchPapers('Geoffrey Hinton', 'author'))[0].id, 'W2741809807')
     assert.equal(urls[0].searchParams.get('search'), 'computer vision')
+    assert.equal(urls[0].searchParams.get('page'), '1')
     assert.equal(urls[1].searchParams.get('filter'), 'raw_author_name.search:"Geoffrey Hinton"')
     assert.deepEqual(await openAlexPaperService.searchPapers('  '), [])
     assert.equal(urls.length, 2)
@@ -80,8 +81,48 @@ test('loads default papers without a search query or author filter', async () =>
     assert.equal(papers[0].id, 'W2741809807')
     assert.equal(requestedUrl.pathname, '/works')
     assert.equal(requestedUrl.searchParams.get('per_page'), '20')
+    assert.equal(requestedUrl.searchParams.get('page'), '1')
     assert.equal(requestedUrl.searchParams.has('search'), false)
     assert.equal(requestedUrl.searchParams.has('filter'), false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('requests a later default page without search parameters', async () => {
+  const originalFetch = globalThis.fetch
+  let requestedUrl
+  globalThis.fetch = async (url) => {
+    requestedUrl = new URL(url)
+    return new Response(JSON.stringify({ results: [work] }))
+  }
+  try {
+    await listDefaultPapers(2)
+    assert.equal(requestedUrl.searchParams.get('page'), '2')
+    assert.equal(requestedUrl.searchParams.get('per_page'), '20')
+    assert.equal(requestedUrl.searchParams.has('search'), false)
+    assert.equal(requestedUrl.searchParams.has('filter'), false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test('preserves paper and author searches on later pages', async () => {
+  const originalFetch = globalThis.fetch
+  const urls = []
+  globalThis.fetch = async (url) => {
+    urls.push(new URL(url))
+    return new Response(JSON.stringify({ results: [work] }))
+  }
+  try {
+    await openAlexPaperService.searchPapers('computer vision', 'paper', 2)
+    await openAlexPaperService.searchPapers('Geoffrey Hinton', 'author', 2)
+    for (const url of urls) {
+      assert.equal(url.searchParams.get('page'), '2')
+      assert.equal(url.searchParams.get('per_page'), '20')
+    }
+    assert.equal(urls[0].searchParams.get('search'), 'computer vision')
+    assert.equal(urls[1].searchParams.get('filter'), 'raw_author_name.search:"Geoffrey Hinton"')
   } finally {
     globalThis.fetch = originalFetch
   }

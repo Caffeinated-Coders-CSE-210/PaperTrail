@@ -1,0 +1,18 @@
+.paper-card {
+  height: 100%;
+  padding: 1.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.5rem;
+  background: white;
+  overflow-wrap: anywhere;
+}
+
+.paper-card h2 { margin: 0; font-size: 1.2rem; line-height: 1.4; }
+.paper-card p { margin: 0.75rem 0 0; }
+.paper-card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.9rem; }
+.paper-card-abstract {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
