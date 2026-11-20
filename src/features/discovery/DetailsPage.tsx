@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { Paper, PaperId } from '../../shared/paper'
+import { LikeButton } from '../likes/LikeButton'
 import { openAlexPaperService } from './openalex'
 import type { PaperService } from './service'
 import './details.css'
@@ -52,6 +53,7 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
               ? <a href={fullTextUrl}>Read full text</a>
               : 'Full-text link unavailable'}
           </p>
+          <LikeButton paperId={paper.id} />
           {/* Mount BookmarkButton with paper here when the bookmarks feature is ready. */}
           {/* PdfReader can receive paper.pdfUrl, paper.title, and paper.url from here. */}
         </>

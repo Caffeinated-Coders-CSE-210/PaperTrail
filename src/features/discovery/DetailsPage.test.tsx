@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
+import { LikesProvider } from '../likes/LikesContext'
 import { DetailsPage } from './DetailsPage'
 import { makePaper } from './testFixtures'
 import type { PaperService } from './service'
@@ -15,7 +16,9 @@ function setup(getPaperById: PaperService['getPaperById']) {
   }
   render(
     <MemoryRouter initialEntries={['/papers/W123']}>
-      <Routes><Route path="papers/:paperId" element={<DetailsPage service={service} />} /></Routes>
+      <LikesProvider store={null} counter={{ countLikes: async () => 5 }}>
+        <Routes><Route path="papers/:paperId" element={<DetailsPage service={service} />} /></Routes>
+      </LikesProvider>
     </MemoryRouter>,
   )
 }
@@ -56,4 +59,10 @@ test('shows a lookup error and retains the Browse link', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe('Unable to load this paper. Please try again.')
   expect(screen.queryByRole('status')).toBeNull()
   expect(screen.getByRole('link', { name: 'Back to Browse' }).getAttribute('href')).toBe('/search')
+})
+
+test('shows likes for the loaded paper', async () => {
+  setup(vi.fn(async () => makePaper()))
+  expect(await screen.findByText('5 likes')).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
 })
