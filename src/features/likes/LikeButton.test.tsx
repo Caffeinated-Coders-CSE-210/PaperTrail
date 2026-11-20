@@ -1,13 +1,13 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { StrictMode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import type { PaperId } from '../../shared/paper'
 import { LikeButton } from './LikeButton'
 import { LikeCount } from './LikeCount'
 import { LikesProvider } from './LikesContext'
-import { LikePermissionError } from './pdsLikes'
-import type { LikeCounter, LikeStore } from './service'
+import { LikePermissionError, type LikeCounter, type LikeStore } from './service'
 
 afterEach(cleanup)
 
@@ -333,4 +333,84 @@ test('a failed like-state lookup can be retried', async () => {
   expect(likeButton().disabled).toBe(false)
   expect(screen.queryByRole('alert')).toBeNull()
   expect(hasLiked).toHaveBeenCalledTimes(2)
+})
+
+test('switching back to an earlier account reloads its like state', async () => {
+  const first = fakeStore({ hasLiked: vi.fn(async () => true) })
+  const second = fakeStore()
+  const { rerender } = setup({ store: first })
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  rerender({ store: second })
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('false'))
+  rerender({ store: first })
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  expect(likeButton().disabled).toBe(false)
+})
+
+test('a write from an earlier session of the same account does not corrupt the count', async () => {
+  const write = deferred()
+  const lookups = [deferred<boolean>(), deferred<boolean>()]
+  let call = 0
+  const first = fakeStore({ hasLiked: vi.fn(() => lookups[call++].promise), like: vi.fn(() => write.promise) })
+  const { rerender, user } = setup({ store: first })
+  await screen.findByText('3 likes')
+  await act(async () => lookups[0].resolve(false))
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  await user.click(likeButton())
+
+  rerender({ store: fakeStore() })
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  rerender({ store: first })
+  await act(async () => write.resolve())
+  expect(screen.queryByText(/NaN/)).toBeNull()
+  expect(screen.getByText('3 likes')).toBeTruthy()
+
+  await act(async () => lookups[1].resolve(true))
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  expect(screen.getByText('3 likes')).toBeTruthy()
+})
+
+test('a lookup from an earlier session of the same account is ignored', async () => {
+  const lookups = [deferred<boolean>(), deferred<boolean>()]
+  let call = 0
+  const first = fakeStore({ hasLiked: vi.fn(() => lookups[call++].promise) })
+  const { rerender } = setup({ store: first })
+  await screen.findByText('3 likes')
+
+  rerender({ store: fakeStore() })
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  rerender({ store: first })
+  await act(async () => lookups[1].resolve(false))
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  await act(async () => lookups[0].resolve(true))
+  expect(likeButton().getAttribute('aria-pressed')).toBe('false')
+})
+
+test('loads once, likes once, and switches accounts under StrictMode', async () => {
+  const counter = fakeCounter(3)
+  const first = fakeStore()
+  const second = fakeStore({ hasLiked: vi.fn(async () => true) })
+  const strict = (store: LikeStore) => (
+    <StrictMode>
+      <MemoryRouter>
+        <LikesProvider store={store} counter={counter}><LikeButton paperId="W123" /></LikesProvider>
+      </MemoryRouter>
+    </StrictMode>
+  )
+  const { rerender } = render(strict(first))
+  const user = userEvent.setup()
+  await screen.findByText('3 likes')
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  expect(counter.countLikes).toHaveBeenCalledTimes(1)
+  expect(first.hasLiked).toHaveBeenCalledTimes(1)
+
+  await user.click(likeButton())
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  expect(first.like).toHaveBeenCalledTimes(1)
+  expect(screen.getByText('4 likes')).toBeTruthy()
+
+  rerender(strict(second))
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  expect(second.hasLiked).toHaveBeenCalledTimes(1)
+  expect(screen.getByText('3 likes')).toBeTruthy()
 })

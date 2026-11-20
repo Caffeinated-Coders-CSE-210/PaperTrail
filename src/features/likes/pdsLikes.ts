@@ -1,10 +1,6 @@
-import type { PaperId } from '../../shared/paper'
 import type { FetchHandler } from '../auth/session.ts'
 import { LIKE_COLLECTION, likeRecord } from './lexicon.ts'
-import type { LikeStore } from './service.ts'
-
-/** The session was granted without permission to write likes. Signing in again requests it. */
-export class LikePermissionError extends Error {}
+import { LikePermissionError, type LikeStore } from './service.ts'
 
 async function errorName(response: Response) {
   try {
@@ -35,10 +31,10 @@ export function createPdsLikeStore(did: string, fetchHandler: FetchHandler): Lik
       if (response.status === 400 && await errorName(response) === 'RecordNotFound') return false
       throw new Error(`PDS getRecord failed (${response.status})`)
     },
-    like(id: PaperId) {
+    like(id) {
       return write('putRecord', { repo: did, collection: LIKE_COLLECTION, rkey: id, record: likeRecord(id) })
     },
-    unlike(id: PaperId) {
+    unlike(id) {
       return write('deleteRecord', { repo: did, collection: LIKE_COLLECTION, rkey: id })
     },
   }

@@ -1,5 +1,8 @@
 import type { PaperId } from '../../shared/paper'
 
+/** The session was granted without permission to write likes. Signing in again requests it. */
+export class LikePermissionError extends Error {}
+
 /** Public like totals across all accounts. Rejects when the count is unavailable. */
 export interface LikeCounter {
   countLikes(id: PaperId): Promise<number>
