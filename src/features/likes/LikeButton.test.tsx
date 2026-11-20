@@ -204,7 +204,7 @@ test('an unavailable count does not block liking', async () => {
 
 test('a failed like-state lookup shows an error and keeps the button disabled', async () => {
   setup({ store: fakeStore({ hasLiked: vi.fn(async () => { throw new Error('offline') }) }) })
-  expect((await screen.findByRole('alert')).textContent).toBe('Could not check whether you liked this paper.')
+  expect((await screen.findByRole('alert')).textContent).toContain('Could not check whether you liked this paper.')
   expect(likeButton().disabled).toBe(true)
 })
 
@@ -273,4 +273,64 @@ test('changing papers shows the new paper’s likes and ignores the old paper’
   await act(async () => oldCount.resolve(1))
   expect(screen.getByText('9 likes')).toBeTruthy()
   expect(screen.queryByText('1 like')).toBeNull()
+})
+
+test('a like made while the count is loading is added to the late count and rolled back with it', async () => {
+  const count = deferred<number>()
+  const write = deferred()
+  const { user } = setup({
+    counter: { countLikes: vi.fn(() => count.promise) },
+    store: fakeStore({ like: vi.fn(() => write.promise) }),
+  })
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  await user.click(likeButton())
+
+  await act(async () => count.resolve(3))
+  expect(screen.getByText('4 likes')).toBeTruthy()
+  await act(async () => write.reject(new Error('offline')))
+  expect(await screen.findByText('3 likes')).toBeTruthy()
+})
+
+test('an old account’s failed write does not change the count or alert the new account', async () => {
+  const write = deferred()
+  const oldStore = fakeStore({ like: vi.fn(() => write.promise) })
+  const newStore = fakeStore()
+  const { rerender, user } = setup({ store: oldStore })
+  await screen.findByText('3 likes')
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  await user.click(likeButton())
+  expect(screen.getByText('4 likes')).toBeTruthy()
+
+  rerender({ store: newStore })
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  expect(screen.getByText('3 likes')).toBeTruthy()
+  await act(async () => write.reject(new Error('offline')))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByText('3 likes')).toBeTruthy()
+  expect(likeButton().getAttribute('aria-pressed')).toBe('false')
+})
+
+test('unliking and liking again keeps the count consistent when the index has not caught up', async () => {
+  const { user } = setup({ store: fakeStore({ hasLiked: vi.fn(async () => true) }), counter: fakeCounter(0) })
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  expect(screen.getByText('1 like')).toBeTruthy()
+  await user.click(likeButton())
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  expect(screen.getByText('0 likes')).toBeTruthy()
+  await user.click(likeButton())
+  await waitFor(() => expect(likeButton().disabled).toBe(false))
+  expect(screen.getByText('1 like')).toBeTruthy()
+})
+
+test('a failed like-state lookup can be retried', async () => {
+  const hasLiked = vi.fn()
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(true)
+  const { user } = setup({ store: fakeStore({ hasLiked }) })
+  await screen.findByRole('alert')
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+  await waitFor(() => expect(likeButton().getAttribute('aria-pressed')).toBe('true'))
+  expect(likeButton().disabled).toBe(false)
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(hasLiked).toHaveBeenCalledTimes(2)
 })

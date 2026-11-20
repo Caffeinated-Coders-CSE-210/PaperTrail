@@ -20,7 +20,7 @@ Writing likes requires the `repo:app.papertrail.like` OAuth scope. Sessions auth
 
 PaperTrail has no backend, so totals come from [Constellation](https://constellation.microcosm.blue), a public index of links between AT Protocol records. The app requests the number of distinct accounts with an `app.papertrail.like` record whose `.subject` links to the paper's OpenAlex URL.
 
-Constellation reads the network firehose, so a new like can take a moment to appear in its count. The UI updates the count as soon as the user likes or unlikes. It also counts the user's own like if the index has not caught up. If Constellation is unavailable, the details page shows "Likes unavailable", cards hide the count, and liking still works.
+Constellation reads the network firehose, so a new like can take a moment to appear in its count. The UI never changes the fetched total. It shows the total plus the change since the paper loaded: liking adds one, unliking subtracts one, and a failed write restores the previous value. A like that existed when the page loaded is assumed to be in the total. If that like is newer than the index, the total can be one low until the index catches up. The user's own like always counts at least once. If Constellation is unavailable, the details page shows "Likes unavailable", cards hide the count, and liking still works.
 
 ## Code
 

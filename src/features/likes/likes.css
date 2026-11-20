@@ -13,3 +13,4 @@
 .likes-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .likes-count { font-size: 0.9rem; }
 .likes-error { flex-basis: 100%; margin: 0; color: #8d302c; }
+.likes-retry { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
