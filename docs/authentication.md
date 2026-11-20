@@ -18,7 +18,7 @@ Serve a public JSON file at `/client-metadata.json` on the deployment's HTTPS or
   "client_name": "PaperTrail",
   "client_uri": "https://papertrail.example.com/",
   "redirect_uris": ["https://papertrail.example.com/"],
-  "scope": "atproto",
+  "scope": "atproto repo:app.papertrail.like",
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "token_endpoint_auth_method": "none",
