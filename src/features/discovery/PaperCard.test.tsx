@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
+import { LikesProvider } from '../likes/LikesContext'
 import { PaperCard } from './PaperCard'
 import { makePaper } from './testFixtures'
 
@@ -26,4 +27,15 @@ test('handles missing metadata and falls back from publication date to year', ()
   rerender(<MemoryRouter><PaperCard paper={{ ...paper, year: null }} /></MemoryRouter>)
   expect(screen.getByText('Publication date unavailable')).toBeTruthy()
   expect(screen.getByRole('link', { name: paper.title }).getAttribute('href')).toBe('/papers/W123')
+})
+
+test('shows the paper’s like count', async () => {
+  const countLikes = vi.fn(async () => 2)
+  render(
+    <MemoryRouter>
+      <LikesProvider store={null} counter={{ countLikes }}><PaperCard paper={makePaper()} /></LikesProvider>
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('2 likes')).toBeTruthy()
+  expect(countLikes).toHaveBeenCalledWith('W123')
 })

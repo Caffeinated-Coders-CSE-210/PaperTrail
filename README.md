@@ -22,13 +22,13 @@ Paper discovery uses [OpenAlex](https://help.openalex.org/api/), which supports 
 
 ## Start a feature
 
-The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Bookmarks and saved papers remain integration work.
+The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Signed-in users can like a paper from its details page, and cards and details show its total likes. Bookmarks and saved papers remain integration work.
 
 | Route | Page entry | Team issue |
 | --- | --- | --- |
 | `/` | `src/features/auth/HomePage.tsx` | [AT Protocol login #4](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/4) |
 | `/search` | `src/features/discovery/SearchPage.tsx` | [OpenAlex discovery #12](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/12) |
-| `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 |
+| `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 and the like button |
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
 
 To check routing, open **Search**, select a paper card, and refresh. Its metadata reloads from OpenAlex. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
@@ -63,7 +63,7 @@ As part of CSE 210, we also aim to follow good software engineering practices th
 
 The architecture plan uses **AT Protocol OAuth** for login. Users can sign in with an existing AT Protocol identity, including a Bluesky account.
 
-PaperTrail also plans to use users' **Personal Data Servers (PDSs)** to store public paper-related records. Custom **Lexicons** will define the record types used by the app. This lets us use AT Protocol for data storage as well as login.
+PaperTrail also plans to use users' **Personal Data Servers (PDSs)** to store public paper-related records. Custom **Lexicons** will define the record types used by the app, starting with `app.papertrail.like` for likes. This lets us use AT Protocol for data storage as well as login.
 
 ## Planned Features
 
@@ -72,6 +72,7 @@ The current plans include:
 - **AT Protocol login:** Sign in and out using an AT Protocol account.
 - **Paper discovery:** Search for research papers and view paper information. The architecture plan uses OpenAlex for academic metadata.
 - **Saved papers:** Bookmark papers and return to a personal saved-paper list.
+- **Likes:** Like papers and see how many accounts have liked each one.
 
 ## Proposed Tech Stack
 
@@ -83,8 +84,9 @@ The current plans include:
 | AT Protocol SDK | OAuth and communication with user repositories |
 | OpenAlex | Academic paper search and metadata |
 | Vercel | Frontend hosting and deployment |
+| Constellation | Like counts across accounts without a backend |
 
-For the initial MVP, the proposed design does **not** include a separate backend server or SQL database. The frontend would communicate with AT Protocol services and OpenAlex, with browser storage for information that users do not want to publish.
+For the initial MVP, the proposed design does **not** include a separate backend server or SQL database. The frontend would communicate with AT Protocol services, OpenAlex, and Constellation, with browser storage for information that users do not want to publish.
 
 ```mermaid
 flowchart TD
@@ -93,9 +95,12 @@ flowchart TD
     PDS[User PDS]
     OA[OpenAlex API]
     LOCAL[Browser storage]
+    CONST[Constellation]
     UI --> AT --> PDS
     UI --> OA
     UI --> LOCAL
+    UI --> CONST
+    PDS -. firehose .-> CONST
 ```
 
 More details are in [Architecture](docs/architecture.md) and [Architecture Decisions](docs/decisions.md).
@@ -108,6 +113,7 @@ More details are in [Architecture](docs/architecture.md) and [Architecture Decis
 - [Decisions](docs/decisions.md): proposed technical decisions and the reasoning behind them.
 - [Authentication](docs/authentication.md): AT Protocol OAuth sign-in, local development, HTTPS deployment, and auth state integration.
 - [OpenAlex API Integration](docs/openalex.md): paper search, data mapping, and API configuration.
+- [Likes](docs/likes.md): like records, OAuth scope, and Constellation like counts.
 
 ## License
 

@@ -128,3 +128,56 @@ test('a session deleted during profile lookup is not restored', async () => {
   finishProfile({ handle, displayName: 'Paper Reader' })
   assert.equal(await restoration, null)
 })
+
+function sessionWithFetch(options = {}) {
+  const forwarded = []
+  const sentinel = new Response('ok')
+  const session = {
+    did,
+    async fetchHandler(path, init) {
+      assert.equal(this, session, 'The handler must stay bound to its SDK session')
+      forwarded.push({ path, init })
+      return sentinel
+    },
+    signOut: options.signOut ?? (async () => {}),
+  }
+  return { session, forwarded, sentinel }
+}
+
+test('exposes the authorized fetch handler only while a session is active', async () => {
+  const { session, forwarded, sentinel } = sessionWithFetch()
+  const { service, deleteSession } = setup({ client: { init: async () => ({ session }) } })
+  assert.equal(service.getFetchHandler(), null)
+  await service.restoreSession()
+
+  const init = { method: 'POST' }
+  assert.equal(await service.getFetchHandler()('/xrpc/test', init), sentinel)
+  assert.deepEqual(forwarded, [{ path: '/xrpc/test', init }])
+
+  deleteSession('did:plc:anotheraccount')
+  assert.equal(typeof service.getFetchHandler(), 'function')
+  deleteSession(did)
+  assert.equal(service.getFetchHandler(), null)
+})
+
+test('a signed-out restoration has no authorized fetch handler', async () => {
+  const { service } = setup({ client: { init: async () => undefined } })
+  await service.restoreSession()
+  assert.equal(service.getFetchHandler(), null)
+})
+
+test('signing out clears the authorized fetch handler', async () => {
+  const { session } = sessionWithFetch()
+  const { service } = setup({ client: { init: async () => ({ session }) } })
+  await service.restoreSession()
+  await service.signOut()
+  assert.equal(service.getFetchHandler(), null)
+})
+
+test('a failed revocation still clears the authorized fetch handler', async () => {
+  const { session } = sessionWithFetch({ signOut: async () => { throw new Error('Revocation failed') } })
+  const { service } = setup({ client: { init: async () => ({ session }) } })
+  await service.restoreSession()
+  await assert.rejects(service.signOut(), /Revocation failed/)
+  assert.equal(service.getFetchHandler(), null)
+})

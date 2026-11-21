@@ -1,13 +1,16 @@
 import { INVALID_HANDLE } from '@atproto/syntax'
 import { createAuthService } from './session'
 
+// Likes are written as `app.papertrail.like` records. Keep in sync with public/client-metadata.json.
+const OAUTH_SCOPE = 'atproto repo:app.papertrail.like'
+
 export const browserAuth = createAuthService(
   async (onSessionDeleted) => {
     const { BrowserOAuthClient, buildLoopbackClientId } = await import('@atproto/oauth-client-browser')
     const { protocol, hostname, origin, port } = window.location
     const loopback = protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(hostname)
     const clientId = loopback
-      ? buildLoopbackClientId({ hostname, port, pathname: '/' })
+      ? `${buildLoopbackClientId({ hostname, port, pathname: '/' })}&scope=${encodeURIComponent(OAUTH_SCOPE)}`
       : new URL('/client-metadata.json', origin).href
 
     return BrowserOAuthClient.load({

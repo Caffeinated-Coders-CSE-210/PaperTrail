@@ -1,0 +1,16 @@
+.likes-action { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 1rem 0; }
+.likes-toggle {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: white;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.likes-toggle[aria-pressed="true"] { background: var(--accent); color: white; }
+.likes-toggle:disabled { opacity: 0.6; cursor: default; }
+.likes-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.likes-count { font-size: 0.9rem; }
+.likes-error { flex-basis: 100%; margin: 0; color: #8d302c; }
+.likes-retry { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }

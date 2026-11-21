@@ -14,6 +14,7 @@ This document summarizes the proposed technical decisions for PaperTrail's initi
 | Browser-side data | `localStorage` or `IndexedDB` | Keep information users do not want to publish in the browser |
 | Initial backend | No separate backend or SQL database | Reduce development and deployment complexity for the MVP |
 | Frontend hosting | Vercel | Straightforward deployment and hosting |
+| Like counting | Constellation | Count likes across accounts without running backend or indexing firehose ourselves |
 
 ## Backend Options
 

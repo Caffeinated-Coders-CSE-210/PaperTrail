@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { browserAuth } from './browserAuth'
-import { InvalidHandleError, type Identity } from './session'
+import { InvalidHandleError, type FetchHandler, type Identity } from './session'
 
 type AuthOperation = 'restore' | 'sign-in' | 'sign-out'
 
@@ -9,6 +9,8 @@ interface AuthContextValue {
   identity: Identity | null
   pending: AuthOperation | null
   error: string | null
+  /** Authorized requests to the signed-in account's PDS, or `null` when signed out. */
+  fetchHandler: FetchHandler | null
   signIn(handle: string): Promise<void>
   signOut(): Promise<void>
 }
@@ -19,6 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [pending, setPending] = useState<AuthOperation | null>('restore')
   const [error, setError] = useState<string | null>(null)
+  const fetchHandler = useMemo(() => (identity ? browserAuth.getFetchHandler() : null), [identity])
 
   useEffect(() => {
     let mounted = true
@@ -66,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ identity, pending, error, signIn, signOut }}>
+    <AuthContext.Provider value={{ identity, pending, error, fetchHandler, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

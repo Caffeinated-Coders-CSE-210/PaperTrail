@@ -14,6 +14,7 @@ For the initial MVP, we plan to build a frontend-only application without a sepa
 | AT Protocol SDK | Handles OAuth and protocol operations without implementing them manually |
 | OpenAlex | Provides academic metadata without building a paper database |
 | Vercel | Frontend deployment and hosting |
+| Constellation | Counts likes across accounts from AT Protocol without backend |
 
 ## Application Workflow
 
@@ -24,6 +25,7 @@ The proposed workflow is:
 3. Saved-paper records are written to the user's repository.
 4. Paper searches use OpenAlex.
 5. Paper metadata is shown in the frontend.
+6. Like count comes from Constellation, which indexes `app.papertrail.like` records from firehose.
 
 ```mermaid
 flowchart TD
@@ -32,9 +34,12 @@ flowchart TD
     PDS[User PDS]
     OA[OpenAlex]
     LOCAL[Browser storage]
+    CONST[Constellation]
     UI --> AT --> PDS
     UI --> OA
     UI --> LOCAL
+    UI --> CONST
+    PDS -. firehose .-> CONST
 ```
 
 ## AT Protocol Login and Records

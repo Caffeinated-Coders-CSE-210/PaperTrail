@@ -15,8 +15,12 @@ export interface AuthService {
 
 export class InvalidHandleError extends Error {}
 
+/** Sends a request to the signed-in account's PDS with OAuth credentials. */
+export type FetchHandler = (pathname: string, init?: RequestInit) => Promise<Response>
+
 interface OAuthSession {
   did: string
+  fetchHandler: FetchHandler
   signOut(): Promise<void>
 }
 
@@ -30,6 +34,8 @@ type Profile = Pick<Identity, 'handle' | 'displayName'>
 
 export interface SessionAuthService extends AuthService {
   onSessionEnded(listener: SessionEndedListener): () => void
+  /** Authorized PDS requests for the active session, or `null` when signed out. */
+  getFetchHandler(): FetchHandler | null
 }
 
 export function createAuthService<Client extends OAuthClient>(
@@ -90,6 +96,10 @@ export function createAuthService<Client extends OAuthClient>(
       } finally {
         sessionEnded(session.did)
       }
+    },
+    getFetchHandler() {
+      const session = activeSession
+      return session ? (pathname, init) => session.fetchHandler(pathname, init) : null
     },
     onSessionEnded(listener) {
       listeners.add(listener)
