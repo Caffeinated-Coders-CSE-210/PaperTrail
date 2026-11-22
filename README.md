@@ -33,9 +33,26 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 
 To check routing, open **Search**, select a paper card, and refresh. Its metadata reloads from OpenAlex. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
 
-Run `npm test` for the Node service tests and Vitest component tests, then
-`npm run build` for typechecking and a production build. Tests live beside their
-features. See [Browse development](docs/browse-development.md) for the incremental
+### Run checks locally
+
+After `npm ci`, run:
+
+```sh
+npm run lint
+npm test
+npm run build
+```
+
+These check for common code mistakes, run the Node service and Vitest component
+tests, and check TypeScript/build the app. Tests live beside their features and
+use fake services or responses; these checks need no personal API keys or login.
+GitHub Actions runs the same commands when a PR is opened or updated and when
+changes reach `main`. The PR shows **Lint** and **Tests and build** results; open
+a failed check's log, fix the problem, and push again to rerun checks. Passing
+checks support code review; merge enforcement requires repository branch rules.
+
+See [PR checks verification](docs/ci-development.md) for the deliberate failure
+examples and [Browse development](docs/browse-development.md) for the incremental
 test record and integration notes for issue #2.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
