@@ -1,0 +1,56 @@
+.pdf-reader {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 1.5rem;
+  border: 1px solid var(--rule, #d6dbd2);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #fff;
+  color: #213b34;
+}
+
+.pdf-reader__toolbar,
+.pdf-reader__control-group,
+.pdf-reader__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pdf-reader__toolbar,
+.pdf-reader__links,
+.pdf-reader__error {
+  padding: 0.75rem;
+}
+
+.pdf-reader__toolbar {
+  border-bottom: 1px solid var(--rule, #d6dbd2);
+  gap: 0.75rem;
+}
+
+.pdf-reader button,
+.pdf-reader input {
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #9caea5;
+  border-radius: 0.25rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.pdf-reader button { cursor: pointer; }
+.pdf-reader button:disabled { cursor: default; opacity: 0.5; }
+.pdf-reader button:not(:disabled):hover { background: #edf3ee; }
+.pdf-reader input { width: 3.5rem; text-align: center; }
+.pdf-reader input[aria-invalid="true"] { border-color: #a32525; }
+.pdf-reader output { min-width: 3.5rem; text-align: center; }
+.pdf-reader :focus-visible { outline: 2px solid var(--accent, #20604c); outline-offset: 2px; }
+.pdf-reader p { margin: 0; padding: 0.75rem; max-width: none; line-height: 1.5; }
+.pdf-reader [role="alert"] { color: #932121; }
+.pdf-reader__error p { padding: 0 0 0.75rem; }
+.pdf-reader__links { gap: 1rem; overflow-wrap: anywhere; }
+.pdf-reader__viewport { width: 100%; max-height: 75vh; overflow: auto; background: #e8ebe7; }
+.pdf-reader .react-pdf__Document { width: max-content; min-width: 100%; }
+.pdf-reader .react-pdf__Page { margin-inline: auto; }

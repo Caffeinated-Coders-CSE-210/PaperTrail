@@ -13,14 +13,18 @@
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:components",
     "test:unit": "node --experimental-strip-types --test src/features/*/*.test.mjs",
-    "test:components": "vitest run"
+    "test:components": "vitest run",
+    "test:reader": "vitest run src/features/reader/",
+    "build:reader": "tsc --project tests/reader/tsconfig.json && vite build --config tests/reader/vite.config.ts --outDir dist/reader-checks"
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.5.14",
     "@atproto/syntax": "^0.7.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "^7.0.0"
+    "react-router": "^7.0.0",
+    "react-pdf": "11.1.0",
+    "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.3",

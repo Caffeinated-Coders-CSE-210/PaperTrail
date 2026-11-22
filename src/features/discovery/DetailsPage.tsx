@@ -4,6 +4,7 @@ import type { Paper, PaperId } from '../../shared/paper'
 import { LikeButton } from '../likes/LikeButton'
 import { openAlexPaperService } from './openalex'
 import type { PaperService } from './service'
+import { PdfReader } from '../reader/PdfReader'
 import './details.css'
 
 export function DetailsPage({ service = openAlexPaperService }: { service?: PaperService }) {
@@ -55,7 +56,7 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
           </p>
           <LikeButton paperId={paper.id} />
           {/* Mount BookmarkButton with paper here when the bookmarks feature is ready. */}
-          {/* PdfReader can receive paper.pdfUrl, paper.title, and paper.url from here. */}
+          <PdfReader pdfUrl={paper.pdfUrl} title={paper.title} sourceUrl={paper.url} />
         </>
       )}
       <Link to="/search">Back to Browse</Link>
