@@ -119,6 +119,7 @@ function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string;
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
+      // eslint-disable-next-line no-control-regex -- Strip control characters from download filenames.
       anchor.download = `${title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120).trim() || 'paper'}.pdf`
       document.body.append(anchor)
       anchor.click()
