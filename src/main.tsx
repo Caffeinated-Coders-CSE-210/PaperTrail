@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { App } from './App'
 import { AuthProvider } from './features/auth/AuthProvider'
+import { AccountBookmarksProvider } from './features/bookmarks/AccountBookmarksProvider'
 import { AccountLikesProvider } from './features/likes/AccountLikesProvider'
 import './styles.css'
 
@@ -16,9 +17,11 @@ if (window.location.protocol === 'http:' && window.location.hostname === 'localh
     <StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <AccountLikesProvider>
-            <App />
-          </AccountLikesProvider>
+          <AccountBookmarksProvider>
+            <AccountLikesProvider>
+              <App />
+            </AccountLikesProvider>
+          </AccountBookmarksProvider>
         </AuthProvider>
       </BrowserRouter>
     </StrictMode>,
