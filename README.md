@@ -22,7 +22,7 @@ Paper discovery uses [OpenAlex](https://help.openalex.org/api/), which supports 
 
 ## Start a feature
 
-The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Signed-in users can like a paper from its details page, and cards and details show its total likes. Bookmarks and saved papers remain integration work.
+The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Signed-in users can like a paper from its details page, and cards and details show its total likes.
 
 | Route | Page entry | Team issue |
 | --- | --- | --- |
@@ -65,14 +65,33 @@ The architecture plan uses **AT Protocol OAuth** for login. Users can sign in wi
 
 PaperTrail also plans to use users' **Personal Data Servers (PDSs)** to store public paper-related records. Custom **Lexicons** will define the record types used by the app, starting with `app.papertrail.like` for likes. This lets us use AT Protocol for data storage as well as login.
 
-## Planned Features
 
-The current plans include:
+## Features and Development Plan
 
-- **AT Protocol login:** Sign in and out using an AT Protocol account.
-- **Paper discovery:** Search for research papers and view paper information. The architecture plan uses OpenAlex for academic metadata.
-- **Saved papers:** Bookmark papers and return to a personal saved-paper list.
-- **Likes:** Like papers and see how many accounts have liked each one.
+We started with the basic features needed to discover and interact with research papers. For the next sprints, we plan to expand AT Protocol integration and add more ways for users to share and discuss papers.
+
+The table below shows the features we worked on during Sprint 1 and what we plan to work on next.
+
+| Feature | Sprint 1 | Follow-up Sprints | Future / Optional |
+| --- | :---: | :---: | :---: |
+| AT Protocol Login | ✓ | | |
+| Paper Search and Discovery | ✓ | | |
+| Browse and Paper Details | ✓ | | |
+| Read Papers (PDF Reader) | ✓ | | |
+| Like Papers | ✓ | | |
+| Bookmarks and Saved Papers | ✓ | | |
+| Publish Research Papers | | ✓ | |
+| Edit and Delete Published Papers | | ✓ | |
+| Cross-User Record Discovery | | ✓ | |
+| Reading Room Discussion Posts | | ✓ | |
+| Reply to Discussion Posts | | ✓ | |
+| Edit and Delete Discussion Posts | | | ✓ |
+| Share Papers to Bluesky | | ✓ | |
+| Save Public Bookmarks to PDS | | ✓ | |
+| Direct Messaging | | | ✓ |
+
+Some features are still being planned and may change depending on our progress and implementation priorities.
+
 
 ## Proposed Tech Stack
 
@@ -111,6 +130,7 @@ More details are in [Architecture](docs/architecture.md) and [Architecture Decis
 - [PR template](.github/pull_request_template.md): a template to keep pull requests consistent and easy to review.
 - [Architecture](docs/architecture.md): an overview of the proposed system architecture and tech stack.
 - [Decisions](docs/decisions.md): proposed technical decisions and the reasoning behind them.
+- [MVP and Project Requirements](docs/mvp.md): our initial project goals, core features, user flow, and future ideas. 
 - [Authentication](docs/authentication.md): AT Protocol OAuth sign-in, local development, HTTPS deployment, and auth state integration.
 - [OpenAlex API Integration](docs/openalex.md): paper search, data mapping, and API configuration.
 - [Likes](docs/likes.md): like records, OAuth scope, and Constellation like counts.
