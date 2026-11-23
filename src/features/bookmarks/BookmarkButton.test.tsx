@@ -42,6 +42,13 @@ function renderWith(ui: ReactNode, backend: BookmarkBackend, accountDid: string 
   )
 }
 
+test('a synchronous storage creation failure shows an error and keeps children rendered', async () => {
+  const backend: BookmarkBackend = { isLocal: true, create() { throw new Error('SecurityError') } }
+  renderWith(<p>Provider children remain rendered</p>, backend)
+  expect(screen.getByText('Provider children remain rendered')).toBeTruthy()
+  expect((await screen.findByRole('alert')).textContent).toContain('could not be loaded')
+})
+
 test('signed-out users are asked to sign in instead of seeing the button', () => {
   renderWith(<BookmarkButton paper={makePaper()} />, memoryBackend().backend, null)
   expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
