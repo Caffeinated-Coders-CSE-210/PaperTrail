@@ -40,6 +40,13 @@ test record and integration notes for issue #2.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
 
+## End-to-end tests
+
+Install the Playwright browser once with `npx playwright install chromium`, then
+run `npm run test:e2e`. Playwright starts the development server automatically.
+The tests mock OpenAlex and the AT Protocol session, so they run without network
+access to those services or real account credentials.
+
 ## Project Goals
 
 - Make research papers easier to discover, save, and discuss.

@@ -15,7 +15,8 @@
     "test:unit": "node --experimental-strip-types --test src/features/*/*.test.mjs",
     "test:components": "vitest run",
     "test:reader": "vitest run src/features/reader/",
-    "build:reader": "tsc --project tests/reader/tsconfig.json && vite build --config tests/reader/vite.config.ts --outDir dist/reader-checks"
+    "build:reader": "tsc --project tests/reader/tsconfig.json && vite build --config tests/reader/vite.config.ts --outDir dist/reader-checks",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@atproto/oauth-client-browser": "^0.5.14",
@@ -27,6 +28,8 @@
     "pdfjs-dist": "6.5.438"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.13",
     "@types/react": "^19.0.0",

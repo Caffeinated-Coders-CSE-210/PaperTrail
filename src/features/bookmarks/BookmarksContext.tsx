@@ -60,13 +60,18 @@ export function BookmarksProvider({
   backend?: BookmarkBackend
   children: ReactNode
 }) {
-  const storage = useMemo(
-    () => (accountDid ? backend.create(accountDid) : null),
-    [accountDid, backend],
-  )
+  const [creationRetryKey, setCreationRetryKey] = useState(0)
+  const { storage, storageError } = useMemo(() => {
+    if (!accountDid) return { storage: null, storageError: false }
+    try {
+      return { storage: backend.create(accountDid), storageError: false }
+    } catch {
+      return { storage: null, storageError: true }
+    }
+  }, [accountDid, backend, creationRetryKey])
   const [papers, setPapers] = useState<Paper[]>([])
   const [status, setStatus] = useState<BookmarksStatus>(
-    storage || authPending ? 'loading' : 'signed-out',
+    storageError ? 'error' : storage || authPending ? 'loading' : 'signed-out',
   )
   const [pending, setPending] = useState<ReadonlySet<PaperId>>(new Set())
   const [reloadKey, setReloadKey] = useState(0)
@@ -74,6 +79,10 @@ export function BookmarksProvider({
   useEffect(() => {
     setPapers([])
     setPending(new Set())
+    if (storageError) {
+      setStatus('error')
+      return
+    }
     if (!storage) {
       setStatus(authPending ? 'loading' : 'signed-out')
       return
@@ -89,7 +98,7 @@ export function BookmarksProvider({
       () => { if (active) setStatus('error') },
     )
     return () => { active = false }
-  }, [storage, authPending, reloadKey])
+  }, [storage, storageError, authPending, reloadKey])
 
   const track = useCallback(async (id: PaperId, operation: () => Promise<void>) => {
     setPending((ids) => new Set(ids).add(id))
@@ -124,9 +133,12 @@ export function BookmarksProvider({
         await track(id, () => storage.removeSavedPaper(id))
         setPapers((current) => current.filter((saved) => saved.id !== id))
       },
-      reload: () => setReloadKey((key) => key + 1),
+      reload: () => {
+        if (storageError) setCreationRetryKey((key) => key + 1)
+        else setReloadKey((key) => key + 1)
+      },
     }
-  }, [status, papers, pending, storage, backend.isLocal, track])
+  }, [status, papers, pending, storage, storageError, backend.isLocal, track])
 
   return <BookmarksContext value={value}>{children}</BookmarksContext>
 }

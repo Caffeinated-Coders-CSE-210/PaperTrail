@@ -42,6 +42,31 @@ function renderWith(ui: ReactNode, backend: BookmarkBackend, accountDid: string 
   )
 }
 
+test('a synchronous storage creation failure shows an error and keeps children rendered', async () => {
+  const backend: BookmarkBackend = { isLocal: true, create() { throw new Error('SecurityError') } }
+  renderWith(<><p>Provider children remain rendered</p><BookmarkButton paper={makePaper()} /></>, backend)
+  expect(screen.getByText('Provider children remain rendered')).toBeTruthy()
+  expect((await screen.findByRole('alert')).textContent).toContain('could not be loaded')
+})
+
+test('retry recreates storage after synchronous creation failure', async () => {
+  const user = userEvent.setup()
+  const { backend: storageBackend } = memoryBackend()
+  let attempts = 0
+  const backend: BookmarkBackend = {
+    isLocal: true,
+    create(did) {
+      attempts += 1
+      if (attempts === 1) throw new Error('SecurityError')
+      return storageBackend.create(did)
+    },
+  }
+  renderWith(<BookmarkButton paper={makePaper()} />, backend)
+  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  expect(await screen.findByRole('button', { name: 'Bookmark' })).toBeTruthy()
+  expect(attempts).toBe(2)
+})
+
 test('signed-out users are asked to sign in instead of seeing the button', () => {
   renderWith(<BookmarkButton paper={makePaper()} />, memoryBackend().backend, null)
   expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
