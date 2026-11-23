@@ -60,6 +60,7 @@ export function BookmarksProvider({
   backend?: BookmarkBackend
   children: ReactNode
 }) {
+  const [creationRetryKey, setCreationRetryKey] = useState(0)
   const { storage, storageError } = useMemo(() => {
     if (!accountDid) return { storage: null, storageError: false }
     try {
@@ -67,7 +68,7 @@ export function BookmarksProvider({
     } catch {
       return { storage: null, storageError: true }
     }
-  }, [accountDid, backend])
+  }, [accountDid, backend, creationRetryKey])
   const [papers, setPapers] = useState<Paper[]>([])
   const [status, setStatus] = useState<BookmarksStatus>(
     storageError ? 'error' : storage || authPending ? 'loading' : 'signed-out',
@@ -132,9 +133,12 @@ export function BookmarksProvider({
         await track(id, () => storage.removeSavedPaper(id))
         setPapers((current) => current.filter((saved) => saved.id !== id))
       },
-      reload: () => setReloadKey((key) => key + 1),
+      reload: () => {
+        if (storageError) setCreationRetryKey((key) => key + 1)
+        else setReloadKey((key) => key + 1)
+      },
     }
-  }, [status, papers, pending, storage, backend.isLocal, track])
+  }, [status, papers, pending, storage, storageError, backend.isLocal, track])
 
   return <BookmarksContext value={value}>{children}</BookmarksContext>
 }
