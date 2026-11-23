@@ -44,7 +44,7 @@ function renderWith(ui: ReactNode, backend: BookmarkBackend, accountDid: string 
 
 test('a synchronous storage creation failure shows an error and keeps children rendered', async () => {
   const backend: BookmarkBackend = { isLocal: true, create() { throw new Error('SecurityError') } }
-  renderWith(<p>Provider children remain rendered</p>, backend)
+  renderWith(<><p>Provider children remain rendered</p><BookmarkButton paper={makePaper()} /></>, backend)
   expect(screen.getByText('Provider children remain rendered')).toBeTruthy()
   expect((await screen.findByRole('alert')).textContent).toContain('could not be loaded')
 })
