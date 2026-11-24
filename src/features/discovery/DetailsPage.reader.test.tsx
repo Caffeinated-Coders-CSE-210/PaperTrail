@@ -26,6 +26,8 @@ vi.mock('react-pdf', () => ({
   Page: ({ pageNumber }: { pageNumber: number }) => <p>PDF page {pageNumber}</p>,
 }))
 
+vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ identity: null, pending: null }) }))
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 800 } as DOMRect)

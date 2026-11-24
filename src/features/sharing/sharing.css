@@ -1,0 +1,5 @@
+.share-paper { max-width: 38rem; margin-block: 1rem; }
+.share-paper label { display: grid; gap: .4rem; font-weight: 600; }
+.share-paper textarea { box-sizing: border-box; width: 100%; padding: .65rem; font: inherit; resize: vertical; }
+.share-paper button + button { margin-inline-start: .75rem; }
+.share-paper a { overflow-wrap: anywhere; }

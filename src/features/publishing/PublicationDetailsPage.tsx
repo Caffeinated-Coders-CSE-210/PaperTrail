@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { PublicationRef } from '../../shared/paper'
-import { validatePublicationRef, type Publication } from './model'
+import { SharePaper } from '../sharing/SharePaper'
+import { paperLink } from '../sharing/post'
+import { publicationPath, validatePublicationRef, type Publication } from './model'
 import { publicPublicationService, publicationErrorMessage, type PublicationService } from './service'
 import './publishing.css'
 
@@ -51,6 +53,8 @@ export function PublicationDetailsPage({ service = publicPublicationService, ref
       <h2>Keywords</h2><p>{metadata.keywords.join(', ') || 'Keywords unavailable'}</p>
       {metadata.doi && <p>DOI: {metadata.doi}</p>}
       {metadata.url && <p><a href={metadata.url} target="_blank" rel="noopener noreferrer">Visit paper page</a></p>}
+      <SharePaper key={publication.uri} title={metadata.title} url={paperLink(metadata.url, metadata.doi,
+        window.location.protocol === 'https:' ? new URL(publicationPath(publication.ref), window.location.origin).href : 'https://pdsls.dev/' + publication.uri)} />
       <h2>PDF</h2><p>PDF · {publication.pdf.blob.size.toLocaleString()} bytes</p>
       <button onClick={checkPdf} disabled={checking}>{checking ? 'Checking PDF…' : 'Check PDF availability'}</button>
       {pdfStatus && <p role="status">{pdfStatus}</p>}

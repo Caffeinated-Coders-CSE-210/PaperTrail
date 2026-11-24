@@ -18,6 +18,8 @@ function service(overrides: Partial<PublicationService> = {}): PublicationServic
 }
 // jsdom lacks Blob.arrayBuffer; use its real FileReader rather than replacing uploaded Files.
 const arrayBufferDescriptor = Object.getOwnPropertyDescriptor(Blob.prototype, 'arrayBuffer')
+vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ identity: null, pending: null }) }))
+
 beforeEach(() => {
   Object.defineProperty(Blob.prototype, 'arrayBuffer', { configurable: true, value: function () {
     return new Promise<ArrayBuffer>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result as ArrayBuffer); reader.onerror = reject; reader.readAsArrayBuffer(this) })

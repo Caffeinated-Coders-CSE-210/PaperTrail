@@ -1,7 +1,7 @@
 import { PAPER_COLLECTION } from '../publishing/model.ts'
 
 /** Shared by loopback sign-in and generated HTTPS deployment metadata. */
-export const OAUTH_SCOPE = `atproto repo:app.papertrail.like repo:${PAPER_COLLECTION} blob:application/pdf`
+export const OAUTH_SCOPE = `atproto repo:app.papertrail.like repo:${PAPER_COLLECTION} blob:application/pdf repo:app.bsky.feed.post?action=create`
 export function createClientMetadata(input: string) {
   const url = new URL(input)
   if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('Provide an HTTPS origin without a path, credentials, query or fragment.')

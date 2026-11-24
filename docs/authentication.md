@@ -23,12 +23,16 @@ Replace the example with the actual HTTPS origin. The generator rejects credenti
 `src/features/auth/oauthConfig.ts` defines the shared scope:
 
 ```text
-atproto repo:app.papertrail.like repo:app.papertrail.paper blob:application/pdf
+atproto repo:app.papertrail.like repo:app.papertrail.paper blob:application/pdf repo:app.bsky.feed.post?action=create
 ```
 
-The scope grants identity access, writes to the like and paper collections, and PDF blob uploads. It does not grant PDS bookmark or discussion writes. Users authorized before publishing permissions were added must sign out and sign in again. Confirm the candidate paper collection's namespace before publishing actual research content; see [Publishing](publishing.md#record-schema-and-namespace).
+The scope grants identity access, writes to the like and paper collections, PDF blob uploads, and creation of Bluesky feed posts. It does not grant PDS bookmark or discussion writes. Users authorized before the relevant publishing or sharing permission was added must sign out and sign in again. Confirm the candidate paper collection's namespace before publishing actual research content; see [Publishing](publishing.md#record-schema-and-namespace).
 
 See the [AT Protocol OAuth specification](https://atproto.com/specs/oauth) for metadata and redirect requirements.
+
+## Sharing to Bluesky
+
+From the details of an OpenAlex or community paper, choose **Share to Bluesky**, edit the text, and confirm **Post to Bluesky**. The post contains a clickable paper link. The composer shows the posting account and returns a link to the confirmed post. Local development uses the public record explorer for community uploads that lack a paper URL or DOI. Regenerate deployment metadata and renew older sessions to grant the create-only feed-post permission.
 
 ## Feature integration
 
