@@ -88,6 +88,26 @@ test('shows an empty state when a search has no matches', async ({ page }) => {
   await expect(page.getByRole('link', { name: paper.title })).toHaveCount(0)
 })
 
+test('combines the area with author search and clears each independently', async ({ page }) => {
+  await page.goto('/search')
+  const area = page.getByLabel('Research area', { exact: true })
+  await area.selectOption('17')
+  await expect(page.getByRole('link', { name: paper.title })).toBeVisible()
+  await page.getByLabel('Search mode').selectOption('author')
+  await page.getByRole('searchbox').fill('Alex')
+  const request = page.waitForRequest(req => new URL(req.url()).searchParams.get('filter') === 'primary_topic.field.id:17,raw_author_name.search:"Alex"')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await request
+  await page.getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(area).toHaveValue('17')
+  await page.route('**/works?**', route => route.fulfill({ json: { results: [] } }))
+  await area.selectOption('26')
+  await expect(page.getByRole('status')).toContainText('No papers match this research area')
+  await page.unroute('**/works?**')
+  await area.selectOption('')
+  await expect(page.getByRole('link', { name: paper.title })).toBeVisible()
+})
+
 test('opens paper details from its direct URL', async ({ page }) => {
   await page.goto('/papers/W123')
 

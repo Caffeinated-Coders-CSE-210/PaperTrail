@@ -30,7 +30,7 @@ function setup(overrides: Partial<PaperService> = {}) {
 test('opens with default papers linked to their details', async () => {
   const { service } = setup()
   expect((await screen.findByRole('link', { name: 'Paper 1' })).getAttribute('href')).toBe('/papers/W1')
-  expect(service.listDefaultPapers).toHaveBeenCalledWith(1)
+  expect(service.listDefaultPapers).toHaveBeenCalledWith(1, undefined)
   expect(screen.getAllByRole('article')).toHaveLength(4)
   expect(screen.getByText('Page 1 of 5')).toBeTruthy()
   expect(screen.getByText('Showing up to 20 papers. Refine your search for different results.')).toBeTruthy()
@@ -68,7 +68,7 @@ test.each(['paper', 'author'] as const)('resets a new %s search to page 1 and pa
   await user.type(screen.getByRole('searchbox'), 'vision')
   await user.click(screen.getByRole('button', { name: 'Search' }))
   await screen.findByRole('link', { name: 'Search Paper 1' })
-  expect(service.searchPapers).toHaveBeenCalledWith('vision', mode, 1)
+  expect(service.searchPapers).toHaveBeenCalledWith('vision', mode, 1, undefined)
   expect(screen.getByText('Page 1 of 5')).toBeTruthy()
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Previous' }).disabled).toBe(true)
   // Editing the input without submitting must not change the loaded results.
@@ -82,7 +82,7 @@ test.each(['paper', 'author'] as const)('resets a new %s search to page 1 and pa
 test('Clear returns from search page 2 to default page 1', async () => {
   const { service, user } = setup()
   await screen.findByRole('link', { name: 'Paper 1' })
-  await user.selectOptions(screen.getByRole('combobox'), 'author')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Search mode' }), 'author')
   await user.type(screen.getByRole('searchbox'), 'Alice')
   await user.click(screen.getByRole('button', { name: 'Search' }))
   await screen.findByRole('link', { name: 'Search Paper 1' })
@@ -91,10 +91,10 @@ test('Clear returns from search page 2 to default page 1', async () => {
   expect(service.searchPapers).toHaveBeenCalledTimes(1)
   await user.click(screen.getByRole('button', { name: 'Clear' }))
   await screen.findByRole('link', { name: 'Paper 1' })
-  expect(service.listDefaultPapers).toHaveBeenLastCalledWith(1)
+  expect(service.listDefaultPapers).toHaveBeenLastCalledWith(1, undefined)
   expect(screen.getByText('Page 1 of 5')).toBeTruthy()
   expect(screen.getByRole<HTMLInputElement>('searchbox').value).toBe('')
-  expect(screen.getByRole<HTMLSelectElement>('combobox').value).toBe('paper')
+  expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Search mode' }).value).toBe('paper')
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Previous' }).disabled).toBe(true)
 })
 

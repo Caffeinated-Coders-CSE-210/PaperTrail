@@ -15,6 +15,9 @@
   font: inherit;
 }
 
+.search-area { display: flex; align-items: center; flex-wrap: wrap; gap: 0.65rem; }
+.search-area select { max-width: 100%; font: inherit; padding: 0.5rem; }
+
 .search-mode,
 .search-input {
   color: inherit;
