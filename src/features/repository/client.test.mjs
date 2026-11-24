@@ -77,3 +77,46 @@ test('an explicit caller cancellation signal does not disable the request deadli
     assert.equal(caller.signal.aborted, false)
   } finally { AbortSignal.timeout = originalTimeout }
 })
+
+test('bounds decoded public record and page JSON instead of trusting Content-Length', async () => {
+  const padding = 'x'.repeat(8 * 1024 * 1024)
+  for (const [operation, body] of [
+    [client => client.getRecord(collection, 'key-1'), { ...envelope, padding }],
+    [client => client.listRecords(collection), { records: [], padding }],
+  ]) {
+    const client = createRepositoryClient(did, async () => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json', 'Content-Length': '1' } }))
+    await assert.rejects(operation(client), error => error.code === 'invalid-response')
+  }
+})
+
+test('bounds DID JSON before resolving its PDS endpoint', async () => {
+  await assert.rejects(resolvePds(did, async () => json({
+    id: did, service: [{ id: '#atproto_pds', type: 'AtprotoPersonalDataServer', serviceEndpoint: 'https://pds.example.test' }],
+    padding: 'x'.repeat(1024 * 1024),
+  })), error => error.code === 'invalid-response')
+})
+
+test('bounds HTTP error JSON before interpreting RecordNotFound', async () => {
+  const client = createRepositoryClient(did, async () => json({ error: 'RecordNotFound', padding: 'x'.repeat(16 * 1024) }, 400))
+  await assert.rejects(client.getRecord(collection, 'key-1'), error => error.code === 'invalid-response' && error.status === 400)
+})
+
+test('allows a valid record page larger than the single-response limit', async () => {
+  const client = createRepositoryClient(did, async () => json({ records: [envelope], padding: 'x'.repeat(1024 * 1024) }))
+  assert.deepEqual((await client.listRecords(collection)).records, [envelope])
+})
+
+test('cancels an oversized JSON stream before buffering its remaining chunks', async () => {
+  let cancelled = false
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(JSON.stringify({ ...envelope, padding: 'x'.repeat(1024 * 1024) })))
+      controller.enqueue(new TextEncoder().encode(' '))
+      controller.close()
+    },
+    cancel() { cancelled = true },
+  })
+  const client = createRepositoryClient(did, async () => new Response(stream))
+  await assert.rejects(client.getRecord(collection, 'key-1'), error => error.code === 'invalid-response')
+  assert.equal(cancelled, true)
+})

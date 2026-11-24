@@ -42,3 +42,23 @@ test('retrieves bounded PDF bytes without credentials and verifies MIME, size an
 test('rejects HTML errors, unavailable documents, truncated data and content mismatch', async () => {
   for (const response of [new Response('<html>', { headers: { 'Content-Type': 'text/html' } }), Response.json({ error: 'BlobNotFound' }, { status: 400 }), new Response(bytes.subarray(0, 8), { headers: { 'Content-Type': 'application/pdf' } }), new Response(new Uint8Array(bytes.length).fill(32), { headers: { 'Content-Type': 'application/pdf' } })]) await assert.rejects(retrievePdf('https://pds.example.test', 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', blob, async () => response))
 })
+
+test('accepts decoded PDF bytes when compression makes Content-Length differ from the record size', async () => {
+  // Fetch exposes decoded bytes but retains the encoded transfer length header.
+  const result = await retrievePdf('https://pds.example.test', 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', blob, async () => new Response(bytes, {
+    headers: { 'Content-Type': 'application/pdf', 'Content-Encoding': 'gzip', 'Content-Length': '300' },
+  }))
+  assert.deepEqual(new Uint8Array(await result.arrayBuffer()), new Uint8Array(bytes))
+})
+
+test('still rejects an oversized decoded PDF even if its transfer length is small', async () => {
+  await assert.rejects(retrievePdf('https://pds.example.test', 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa', blob, async () => new Response(new Uint8Array(bytes.length + 1), {
+    headers: { 'Content-Type': 'application/pdf', 'Content-Encoding': 'gzip', 'Content-Length': '10' },
+  })), error => error.code === 'too-large')
+})
+
+test('bounds upload capability and blob JSON responses before accepting their fields', async () => {
+  const padding = 'x'.repeat(1024 * 1024)
+  await assert.rejects(uploadPdf(file(), async path => path.includes('describeServer') ? Response.json({ blobUploadLimit: 5242880, padding }) : Response.json({ blob })), error => error.code === 'invalid-response')
+  await assert.rejects(uploadPdf(file(), async path => path.includes('describeServer') ? Response.json({}) : Response.json({ blob, padding })), error => error.code === 'invalid-response')
+})

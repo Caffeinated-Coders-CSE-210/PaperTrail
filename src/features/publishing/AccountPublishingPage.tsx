@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useAuth } from '../auth/AuthProvider'
 import { createPublicationService } from './service'
 import { PublishPage } from './PublishPage'
@@ -8,7 +8,9 @@ import { MyPublicationsPage } from './MyPublicationsPage'
 export function AccountPublishingPage({ view }: { view: 'publish' | 'list' }) {
   const { identity, fetchHandler, pending } = useAuth()
   const current = useRef({ identity, fetchHandler, pending })
-  current.current = { identity, fetchHandler, pending }
+  useLayoutEffect(() => {
+    current.current = { identity, fetchHandler, pending }
+  }, [identity, fetchHandler, pending])
   const did = identity?.did
   const service = useMemo(() => did && fetchHandler && pending === null ? createPublicationService({
     did, fetchHandler,

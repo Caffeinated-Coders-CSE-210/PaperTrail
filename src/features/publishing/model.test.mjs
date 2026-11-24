@@ -49,3 +49,15 @@ test('the formal Lexicon validates structure; domain validation also enforces PD
 test('rejects timestamps that are parseable by JavaScript but lack protocol-required seconds', () => {
   assert.throws(() => parsePublication({ uri: `at://${did}/${PAPER_COLLECTION}/paper-1`, cid, value: { $type: PAPER_COLLECTION, title: 'Paper', authors: ['Ada'], pdf: blob, createdAt: '2026-11-23T00:00Z' } }))
 })
+
+test('preserves ordered authors with identical display names while deduplicating only keywords', () => {
+  const metadata = normalizeMetadata({ title: 'Paper', authors: [' Wei Wang ', 'Ada', 'Wei Wang'], keywords: ['AI', 'AI', 'Testing'] })
+  assert.deepEqual(metadata.authors, ['Wei Wang', 'Ada', 'Wei Wang'])
+  assert.deepEqual(metadata.keywords, ['AI', 'Testing'])
+})
+
+test('rejects impossible createdAt calendar dates without rejecting leap days or timezone offsets', () => {
+  const envelope = createdAt => ({ uri: `at://${did}/${PAPER_COLLECTION}/paper-1`, cid, value: { $type: PAPER_COLLECTION, title: 'Paper', authors: ['Ada'], pdf: blob, createdAt } })
+  for (const date of ['2025-02-30T00:00:00Z', '2025-02-29T00:00:00Z', '2026-04-31T23:00:00-05:00']) assert.throws(() => parsePublication(envelope(date)), date)
+  for (const date of ['2024-02-29T23:00:00-05:00', '2026-11-23T23:59:59.123+02:00']) assert.equal(parsePublication(envelope(date)).createdAt, date)
+})

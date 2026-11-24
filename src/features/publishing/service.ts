@@ -62,13 +62,18 @@ export function createPublicationService(session: PublicationSession | null, dep
           check(options.signal)
           return decodeRecord({ ...identity, value: expected })
         } catch (error) {
-          check(options.signal)
-          // A response can be lost after the server committed the write. Read the reserved key first.
-          const recovered = await repo.getRecord(PAPER_COLLECTION, ref.rkey, options)
-          check(options.signal)
-          if (recovered) return match(recovered)
-          if (error instanceof PdsError && ['BlobNotFound', 'InvalidBlob'].includes(error.protocolCode ?? '')) { blob = undefined; expected = undefined }
-          throw error
+          const invalidBlob = error instanceof PdsError && ['BlobNotFound', 'InvalidBlob'].includes(error.protocolCode ?? '')
+          try {
+            check(options.signal)
+            // A response can be lost after commit. Keep the attempted blob for comparison.
+            const recovered = await repo.getRecord(PAPER_COLLECTION, ref.rkey, options)
+            check(options.signal)
+            if (recovered) return match(recovered)
+            throw error
+          } finally {
+            // Invalidate rejected uploads even if recovery fails or is cancelled.
+            if (invalidBlob) { blob = undefined; expected = undefined }
+          }
         }
       }
       return {
