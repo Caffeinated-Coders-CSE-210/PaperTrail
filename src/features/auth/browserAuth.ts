@@ -1,8 +1,7 @@
 import { INVALID_HANDLE } from '@atproto/syntax'
 import { createAuthService } from './session'
 
-// Likes are written as `app.papertrail.like` records. Keep in sync with public/client-metadata.json.
-const OAUTH_SCOPE = 'atproto repo:app.papertrail.like'
+import { OAUTH_SCOPE } from './oauthConfig'
 
 export const browserAuth = createAuthService(
   async (onSessionDeleted) => {

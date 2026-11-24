@@ -2,7 +2,6 @@
 
 This document outlines our proposed architecture for PaperTrail, starting with the initial MVP and the features we plan to add in later sprints. We aim to keep the application simple and use existing services for authentication, data storage, and paper discovery.
 
-
 ## Initial MVP Setup & Tech Stack
 
 For the initial MVP, we plan to build a frontend-only application without a separate backend server or SQL database. The frontend will communicate directly with AT Protocol services and OpenAlex to handle user accounts, paper-related records, and research paper metadata.
@@ -23,7 +22,7 @@ The proposed workflow is:
 
 1. A user logs in with AT Protocol OAuth.
 2. The React frontend communicates with the user's PDS using authorized requests.
-3. Public PaperTrail records can be stored in the user's PDS as repository integration is implemented.
+3. Likes and published-paper records are written to the user's repository; published records reference uploaded PDF blobs. Bookmarks remain browser-local and are keyed by DID.
 4. Paper searches use OpenAlex.
 5. Paper metadata is shown in the frontend.
 6. Like count comes from Constellation, which indexes `app.papertrail.like` records from firehose.
@@ -46,29 +45,26 @@ flowchart TD
 ## AT Protocol Login and Records
 
 - **OAuth:** `@atproto/oauth-client-browser` handles sign-in with AT Protocol identities, session restoration, and sign-out. React features read the active identity through `useAuth()`. See [Authentication](authentication.md) for local setup, deployment, and the handoff to other features.
-- **PDS:** Public PaperTrail records would be stored in users' AT Protocol repositories.
-- **Lexicons:** PaperTrail would define its own record schemas for app-specific data.
+- **PDS:** Likes and published papers use public records in users' repositories. A thin repository client provides create/get/list/put/delete for later features.
+- **Lexicons:** Published papers have a checked-in custom schema; the collection's formal namespace authority and schema publication remain unconfirmed. See [Publishing](publishing.md) for metadata, PDF storage and retry contracts.
 
 ## Paper Metadata
 
-PaperTrail will use OpenAlex to retrieve research paper information. This allows us to support paper discovery without building and maintaining our own database of research paper metadata.
+Browse/Search retrieves OpenAlex metadata. Uploaded-paper details retrieve metadata from the publishing account's PDS. Both use common `PaperMetadata` fields, with source-specific identifiers: short OpenAlex work IDs for `/papers/:paperId`, and DID plus record key for `/publications/:repoDid/:rkey`. Known-record retrieval does not provide global cross-user discovery, which belongs to #30.
 
 ## Data Storage
 
 The proposed design uses two storage mechanisms.
 
-- AT Protocol Repositories: public PaperTrail records will be stored in users' PDS repositories rather than in a centralized application database.
+- AT Protocol Repositories: public likes and paper records are stored in the owner's PDS. PDF blobs are stored alongside the repository and referenced by paper records.
 
-- Browser Storage: for information users do not want to share publicly, we can use browser-side storage such as localStorage or IndexedDB.
+- Browser Storage: bookmarks currently use localStorage, isolated by account DID. #34 covers public PDS bookmarks and consent for any migration of local entries.
 
+## PDS Integration
 
-## Planned PDS Integration
+Publishing (#37) stores public paper records and PDF blobs in the owner's PDS. Its reusable repository operations are available to later features; see [Publishing](publishing.md) for the implemented interfaces and PDF retrieval limits.
 
-We plan to use AT Protocol repositories for public PaperTrail records, including published papers, shared bookmarks, and Reading Room posts. Each type of record will follow a custom Lexicon so we can store and retrieve data in a consistent format.
-
-Our initial implementation will focus on publishing and retrieving paper records. We also plan to set up reusable repository operations that other features can use, instead of implementing similar PDS logic separately for each feature.
-
-Private information can remain in browser storage, while public records can be stored in the user's PDS.
+Shared bookmarks (#34) and Reading Room posts (#31) remain planned integrations. They can build on the repository client while retaining their own record schemas and permission requirements. Existing private bookmarks stay in browser storage and are not migrated automatically.
 
 ## Cross-User Record Discovery
 

@@ -1,0 +1,14 @@
+.publishing { max-width: 48rem; margin-inline: auto; overflow-wrap: anywhere; }
+.publishing fieldset { border: 0; padding: 0; margin: 0; }
+.publishing label { display: grid; gap: .4rem; margin-block: 1rem; font-weight: 600; }
+.publishing input, .publishing textarea { width: 100%; box-sizing: border-box; font: inherit; padding: .65rem; border: 1px solid #b8c3ce; border-radius: .4rem; }
+.publishing textarea { resize: vertical; }
+.publishing button { padding: .65rem 1rem; font: inherit; cursor: pointer; border: 1px solid #718296; border-radius: .4rem; background: #f4f7fa; color: #172839; }
+.publishing button:disabled { opacity: .65; cursor: wait; }
+.publishing__columns, .publishing__actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+.publishing__columns > label { flex: 1 1 12rem; }
+.publishing__review { padding: 1.25rem; border: 1px solid #b8c3ce; border-radius: .5rem; }
+.publishing__list { list-style: none; padding: 0; }
+.publishing__list li { padding-block: 1rem; border-bottom: 1px solid #dce3ea; }
+.publishing__identifier { font-size: .85em; }
+.publishing [role='alert'] { color: #a11f28; }
