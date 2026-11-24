@@ -14,7 +14,7 @@ function setup(options = {}) {
   const handler = async (path, init) => {
     if (path.includes('describeServer')) return Response.json({ blobUploadLimit: 5242880 })
     if (path.includes('uploadBlob')) { uploads++; await options.onUpload?.(); return Response.json({ blob }) }
-    if (path.includes('getRecord')) { const key = new URL(path, 'https://pds.test').searchParams.get('rkey'); return records.has(key) ? Response.json(records.get(key)) : Response.json({ error: 'RecordNotFound' }, { status: 400 }) }
+    if (path.includes('getRecord')) { await options.onRead?.(); const key = new URL(path, 'https://pds.test').searchParams.get('rkey'); return records.has(key) ? Response.json(records.get(key)) : Response.json({ error: 'RecordNotFound' }, { status: 400 }) }
     if (path.includes('listRecords')) return Response.json({ records: [...records.values()], cursor: 'next' })
     const body = JSON.parse(init.body); writes.push(body)
     const row = { uri: `at://${did}/${PAPER_COLLECTION}/${body.rkey}`, cid, value: body.record }
@@ -79,3 +79,19 @@ test('rejects malformed publication references before any public network request
   await assert.rejects(service.getPublicationPdf({ source: 'publication', repoDid: did, rkey: '../bad' }))
   assert.equal(calls, 0)
 })
+
+for (const protocolCode of ['BlobNotFound', 'InvalidBlob']) {
+  test(`reuploads after ${protocolCode} even when the recovery read fails`, async () => {
+    let reads = 0
+    const s = setup({
+      onRead: () => { if (++reads === 2) throw new TypeError('recovery read unavailable') },
+      beforeWrite: ({ writes }) => writes.length === 1 ? Response.json({ error: protocolCode }, { status: 400 }) : undefined,
+    })
+    const attempt = s.service.prepare({ title: 'Paper', authors: ['Ada'] }, file())
+    await assert.rejects(attempt.publish())
+    const result = await attempt.publish()
+    assert.equal(result.ref.rkey, 'stable-key')
+    assert.equal(s.uploads, 2)
+    assert.deepEqual(s.writes.map(row => row.rkey), ['stable-key', 'stable-key'])
+  })
+}

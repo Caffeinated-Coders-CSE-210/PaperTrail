@@ -30,7 +30,7 @@ The application normalizes absent scalar metadata to `null` and absent keyword l
 
 `lexicons/app.papertrail.paper.json` defines the candidate `app.papertrail.paper` record schema. This follows the existing likes naming pattern, but domain authority and network schema publication have not been confirmed. A checked-in schema does not establish ownership of `papertrail.app` or prove that a PDS validates this custom schema. Confirm the collection before publishing actual research content; changing a deployed collection would change canonical record identities.
 
-The record contains title, authors, optional metadata, `createdAt`, and a required `pdf` blob reference. Publisher identity comes from the repository URI, separately from the paper's authors. `createdAt` is the publishing timestamp, not the paper's publication date.
+The record contains title, authors, optional metadata, `createdAt`, and a required `pdf` blob reference. Publisher identity comes from the repository URI, separately from the paper's authors. `createdAt` is the publishing timestamp, not the paper's publication date. Its calendar date is checked in addition to protocol datetime syntax. Author order and repeated display names are preserved; only keywords are deduplicated.
 
 | Field | Local validation |
 | --- | --- |
@@ -55,7 +55,7 @@ The product limit is 5 MiB (5,242,880 bytes). Upload uses the smaller of this li
 
 Records store the complete blob object, including `$type`, CID link, MIME and size. They do not store object URLs, tokens or the PDS hostname. Upload precedes the record write. Unreferenced uploads remain temporary and can be garbage collected; a successful file upload is not a successful publication. See the [official blob lifecycle](https://atproto.com/specs/blob#blob-lifecycle).
 
-`getPublicationPdf(ref, { signal })` returns `Promise<Blob>` containing verified PDF bytes. It loads the current record, fetches the blob using its owner's current PDS, bounds the response size and checks MIME, header, declared size and SHA-256 CID. Metadata and PDF errors remain separate.
+`getPublicationPdf(ref, { signal })` returns `Promise<Blob>` containing verified PDF bytes. It loads the current record, fetches the blob using its owner's current PDS, bounds the response size and checks MIME, header, declared size and SHA-256 CID. Metadata and PDF errors remain separate. Size and CID checks use the decoded PDF bytes; Content-Length may describe a compressed transfer and is not compared with the record size.
 
 The returned Blob is an in-memory result, not a persistent URL. The service does not create object URLs. A #15 adapter may convert it to a reader-supported input and must own object URL creation/revocation or byte-buffer lifecycle. The existing PdfReader accepts HTTP/HTTPS URL strings; it does not yet accept this Blob contract.
 
@@ -75,7 +75,7 @@ Public records and PDFs can be copied. Account restrictions, content removal or 
 
 `listRecords` returns one page and an optional cursor. It does not load every record implicitly. My publications preserves previously loaded entries on a next-page failure and retries the failed cursor. Ordering follows PDS pagination; it is not a global chronological feed.
 
-`getRecord` returns `null` only for the specific RecordNotFound response. Other failures reject. Invalid list items reject the page instead of being silently dropped. API errors retain a category, HTTP status and protocol code. Authentication failures, explicit insufficient scope, general forbidden operations, rate limits, size rejection, conflicts, invalid data and network failures remain distinguishable. Browser network failures do not prove CORS is the cause.
+`getRecord` returns `null` only for the specific RecordNotFound response. Other failures reject. Invalid list items reject the page instead of being silently dropped. API errors retain a category, HTTP status and protocol code. Authentication failures, explicit insufficient scope, general forbidden operations, rate limits, size rejection, conflicts, invalid data and network failures remain distinguishable. Browser network failures do not prove CORS is the cause. JSON bodies are bounded before parsing: 1 MiB for individual responses, 8 MiB for record pages, and 16 KiB for HTTP errors. These limits count decoded bytes and cancel oversized streams.
 
 The reusable client does not migrate likes or private local bookmarks. Publication details do not mount their current OpenAlex-specific controls. Future consumers must use source-aware references rather than interpreting an AT URI as an OpenAlex ID.
 
@@ -85,7 +85,7 @@ A prepared attempt fixes the account DID, metadata snapshot, generated UUID reco
 
 If a response is lost after a write, the attempt queries the same key and compares the publication's metadata, createdAt and blob. A matching record confirms success. A different record is a conflict. If no record can be confirmed, the UI reports an unconfirmed publication and retains the attempt for retry.
 
-An explicit missing/invalid temporary blob error clears the upload reference so a later retry reuploads with the same record key. Other failures retain the existing reference. There is no placeholder record or assumed client-side temporary-blob deletion endpoint.
+An explicit missing/invalid temporary blob error clears the upload reference so a later retry reuploads with the same record key. Invalidation still runs if the recovery lookup fails or is cancelled. Other failures retain the existing reference. There is no placeholder record or assumed client-side temporary-blob deletion endpoint.
 
 Before submission, the user can return from review to edit. After submission starts, the confirmed snapshot stays fixed during retries. Refreshing does not restore an unpublished File or attempt; users should inspect My publications before starting again. Distinct publishing attempts are not deduplicated by DOI, title or PDF content.
 

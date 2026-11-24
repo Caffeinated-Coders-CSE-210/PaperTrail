@@ -32,8 +32,11 @@ export async function request(fetchHandler: FetchHandler, path: string, init: Re
     signal.throwIfAborted()
     const response = await fetchHandler(path, { ...init, signal })
     if (response.ok) return response
-    const body = await response.json().catch(() => ({}))
-    const protocolCode = typeof body?.error === 'string' ? body.error : undefined
+    const body = await readBoundedJson(response, 16 * 1024).catch(error => {
+      if (error instanceof PdsError) throw error
+      return null
+    })
+    const protocolCode = body && typeof body === 'object' && 'error' in body && typeof body.error === 'string' ? body.error : undefined
     const code: ErrorCode = response.status === 401 ? 'authentication'
       : protocolCode === 'InsufficientScope' ? 'permission'
         : response.status === 403 ? 'forbidden'
@@ -46,9 +49,35 @@ export async function request(fetchHandler: FetchHandler, path: string, init: Re
     throw new PdsError('network', 'Could not reach the PDS. Retry the request.')
   }
 }
-async function readJson(response: Response) {
-  try { return recordObject(await response.json()) }
-  catch { throw new PdsError('invalid-response', 'The server returned invalid JSON.') }
+/** Limit decoded bytes before parsing; Content-Length can describe an encoded body. */
+async function readBoundedJson(response: Response, limit: number): Promise<unknown> {
+  if (!response.body) throw new SyntaxError('Missing JSON body.')
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) throw new PdsError('invalid-response', 'The PDS JSON response exceeds its size limit.', response.status)
+      chunks.push(value)
+    }
+  } finally {
+    await reader.cancel().catch(() => {})
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength }
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+}
+export async function readJson(response: Response, limit = 1024 * 1024): Promise<Record<string, unknown>> {
+  try { return recordObject(await readBoundedJson(response, limit)) }
+  catch (error) {
+    if (error instanceof PdsError) throw error
+    throw new PdsError('invalid-response', 'The server returned invalid JSON.', response.status)
+  }
 }
 function checkKey(collection: string, rkey?: string) {
   if (!isValidNsid(collection) || (rkey !== undefined && !isValidRecordKey(rkey))) throw new Error('Invalid collection or record key.')
@@ -100,7 +129,7 @@ export function createRepositoryClient(repo: string, fetchHandler: FetchHandler)
       if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Invalid page size.')
       const params = new URLSearchParams({ repo, collection, limit: String(limit) })
       if (options.cursor) params.set('cursor', options.cursor)
-      const data = await readJson(await request(fetchHandler, `/xrpc/com.atproto.repo.listRecords?${params}`, { signal: options.signal }))
+      const data = await readJson(await request(fetchHandler, `/xrpc/com.atproto.repo.listRecords?${params}`, { signal: options.signal }), 8 * 1024 * 1024)
       if (!Array.isArray(data.records) || (data.cursor !== undefined && typeof data.cursor !== 'string')) throw new PdsError('invalid-response', 'Invalid record page.')
       const records = data.records.map(value => {
         const row = recordObject(value)

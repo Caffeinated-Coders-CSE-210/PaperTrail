@@ -37,7 +37,10 @@ function text(value: unknown, limit: number): string | null {
 function texts(value: unknown, count: number, limit: number): string[] {
   if (value == null) return []
   if (!Array.isArray(value) || value.length > count) throw new Error(`Expected at most ${count} entries.`)
-  return [...new Set(value.map(v => text(v, limit)).filter((v): v is string => v !== null))]
+  return value.map(v => text(v, limit)).filter((v): v is string => v !== null)
+}
+function validCalendarDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
 }
 export function normalizeMetadata(input: MetadataInput): PaperMetadata {
   const title = text(input.title, FIELD_LIMITS.title)
@@ -46,7 +49,7 @@ export function normalizeMetadata(input: MetadataInput): PaperMetadata {
   const year = input.year ?? null
   if (year !== null && (!Number.isInteger(year) || year < 1 || year > 9999)) throw new Error('Enter a valid year.')
   const publicationDate = text(input.publicationDate, 10)
-  if (publicationDate && (!/^\d{4}-\d{2}-\d{2}$/.test(publicationDate) || !Number.isFinite(Date.parse(publicationDate)) || new Date(publicationDate).toISOString().slice(0, 10) !== publicationDate)) throw new Error('Enter a valid publication date.')
+  if (publicationDate && !validCalendarDate(publicationDate)) throw new Error('Enter a valid publication date.')
   if (publicationDate && year !== null && Number(publicationDate.slice(0, 4)) !== year) throw new Error('Publication date and year must agree.')
   const url = text(input.url, FIELD_LIMITS.url)
   if (url) {
@@ -55,7 +58,7 @@ export function normalizeMetadata(input: MetadataInput): PaperMetadata {
   }
   const doi = text(input.doi, FIELD_LIMITS.doi)?.replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').replace(/^doi:\s*/i, '').toLowerCase() ?? null
   if (doi && !/^10\.\d{4,9}\/\S+$/.test(doi)) throw new Error('Enter a DOI such as 10.1234/example.')
-  return { title, authors, year, abstract: text(input.abstract, FIELD_LIMITS.abstract), doi, url, publicationDate, researchArea: text(input.researchArea, FIELD_LIMITS.researchArea), keywords: texts(input.keywords, 30, FIELD_LIMITS.keyword) }
+  return { title, authors, year, abstract: text(input.abstract, FIELD_LIMITS.abstract), doi, url, publicationDate, researchArea: text(input.researchArea, FIELD_LIMITS.researchArea), keywords: [...new Set(texts(input.keywords, 30, FIELD_LIMITS.keyword))] }
 }
 export function validatePublicationRef(ref: PublicationRef) {
   if (ref.source !== 'publication' || !isValidDid(ref.repoDid) || !isValidRecordKey(ref.rkey)) throw new Error('Invalid publication identifier.')
@@ -86,7 +89,7 @@ export function parsePublication(envelope: { uri: string; cid: string; value: un
   const ref = validatePublicationRef({ source: 'publication', repoDid: match[1], rkey: match[3] })
   parseCid(envelope.cid)
   const value = object(envelope.value)
-  if (value.$type !== PAPER_COLLECTION || typeof value.createdAt !== 'string' || !isValidDatetime(value.createdAt)) throw new Error('Invalid publication record.')
+  if (value.$type !== PAPER_COLLECTION || typeof value.createdAt !== 'string' || !isValidDatetime(value.createdAt) || !validCalendarDate(value.createdAt.slice(0, 10))) throw new Error('Invalid publication record.')
   const metadata = normalizeMetadata(value as unknown as MetadataInput)
   return { ref, uri: envelope.uri, cid: envelope.cid, metadata, createdAt: value.createdAt, pdf: { kind: 'pds-blob', repoDid: ref.repoDid, blob: validatePdfReference(value.pdf) } }
 }

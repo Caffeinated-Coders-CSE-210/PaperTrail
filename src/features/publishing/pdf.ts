@@ -1,6 +1,6 @@
 import { cidForRawBytes } from '@atproto/lex-data'
 import type { FetchHandler } from '../auth/session.ts'
-import { PdsError, request, recordObject, type RequestOptions } from '../repository/client.ts'
+import { PdsError, request, readJson, type RequestOptions } from '../repository/client.ts'
 import { MAX_PDF_BYTES, validatePdfReference, type PdfBlobRef } from './model.ts'
 
 function pdfHeader(bytes: Uint8Array) {
@@ -13,7 +13,7 @@ export async function validatePdfFile(file: File, limit = MAX_PDF_BYTES) {
 }
 export async function uploadPdf(file: File, fetchHandler: FetchHandler, options: RequestOptions = {}): Promise<PdfBlobRef> {
   await validatePdfFile(file)
-  const capabilities = recordObject(await (await request(fetchHandler, '/xrpc/com.atproto.server.describeServer', options)).json())
+  const capabilities = await readJson(await request(fetchHandler, '/xrpc/com.atproto.server.describeServer', options))
   const limit = capabilities.blobUploadLimit
   if (limit !== undefined && (!Number.isInteger(limit) || Number(limit) < 0)) throw new PdsError('invalid-response', 'Invalid PDS upload limit.')
   await validatePdfFile(file, typeof limit === 'number' ? limit : MAX_PDF_BYTES)
@@ -21,7 +21,7 @@ export async function uploadPdf(file: File, fetchHandler: FetchHandler, options:
   const response = await request(fetchHandler, '/xrpc/com.atproto.repo.uploadBlob', {
     method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: file, signal: options.signal,
   })
-  const blob = validatePdfReference(recordObject(await response.json()).blob)
+  const blob = validatePdfReference((await readJson(response)).blob)
   if (blob.size !== file.size || blob.ref.$link !== (await cidForRawBytes(new Uint8Array(await file.arrayBuffer()))).toString()) throw new PdsError('invalid-response', 'Uploaded PDF metadata does not match the selected file.')
   return blob
 }
@@ -36,8 +36,7 @@ export async function retrievePdf(endpoint: string, did: string, input: PdfBlobR
     throw error
   }
   if (response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'application/pdf') throw new PdsError('invalid-response', 'The PDS did not return a PDF.')
-  const length = response.headers.get('Content-Length')
-  if (length !== null && Number(length) !== blob.size) throw new PdsError('invalid-response', 'The PDF size does not match its record.')
+  // Fetch exposes decoded bytes; Content-Length may describe a compressed transfer.
   if (!response.body) throw new PdsError('document-unavailable', 'The PDF has no content.')
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []

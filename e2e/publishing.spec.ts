@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import { cidForRawBytes } from '@atproto/lex-data'
 
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa'
@@ -42,7 +43,11 @@ test('publishes a fixed PDF, recovers a lost write response, reloads public deta
       return route.fulfill(record ? { json: record } : { status: 400, json: { error: 'RecordNotFound' } })
     }
     if (url.pathname.endsWith('listRecords')) return route.fulfill({ json: { records: [...records.values()] } })
-    if (url.pathname.endsWith('getBlob')) return route.fulfill({ contentType: 'application/pdf', body: bytes })
+    if (url.pathname.endsWith('getBlob')) {
+      // Interception bypasses wire decoding. Model Fetch's decoded body and encoded length.
+      const transferLength = gzipSync(bytes).length
+      return route.fulfill({ headers: { 'Content-Type': 'application/pdf', 'Content-Encoding': 'gzip', 'Content-Length': String(transferLength) }, body: bytes })
+    }
     throw new Error(`Unexpected request ${url.pathname}`)
   })
   await page.goto('/publish')
