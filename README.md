@@ -22,7 +22,7 @@ Paper discovery uses [OpenAlex](https://help.openalex.org/api/), which supports 
 
 ## Start a feature
 
-The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Signed-in users can like a paper from its details page, and cards and details show its total likes.
+The first demo follows sign-in → search → details → bookmark → saved papers. Sign-in is on Home. Browse/Search shows OpenAlex paper cards with pagination, and details loads metadata from its route ID. Signed-in users can like a paper from its details page, and cards and details show its total likes. Bookmarks and saved papers use browser-local storage, isolated by the signed-in account's DID. The publishing flow adds PDF upload → public confirmation → My publications → publication details.
 
 | Route | Page entry | Team issue |
 | --- | --- | --- |
@@ -30,6 +30,9 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 | `/search` | `src/features/discovery/SearchPage.tsx` | [OpenAlex discovery #12](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/12) |
 | `/papers/:paperId` | `src/features/discovery/DetailsPage.tsx` | #12, with the bookmark control from #8 and the like button |
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
+| `/publish` | `src/features/publishing/AccountPublishingPage.tsx` (form) | [Paper publishing #37](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/37) |
+| `/publications` | `src/features/publishing/AccountPublishingPage.tsx` (list) | #37 |
+| `/publications/:repoDid/:rkey` | `src/features/publishing/PublicationDetailsPage.tsx` | #37; reader integration follows in #15 |
 
 To check routing, open **Search**, select a paper card, and refresh. Its metadata reloads from OpenAlex. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
 
@@ -44,8 +47,7 @@ See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and sha
 
 Install the Playwright browser once with `npx playwright install chromium`, then
 run `npm run test:e2e`. Playwright starts the development server automatically.
-The tests mock OpenAlex and the AT Protocol session, so they run without network
-access to those services or real account credentials.
+The tests mock OpenAlex and the AT Protocol session, so they run without network access to those services or real account credentials.
 
 ## Project Goals
 
@@ -72,7 +74,6 @@ The architecture plan uses **AT Protocol OAuth** for login. Users can sign in wi
 
 PaperTrail also plans to use users' **Personal Data Servers (PDSs)** to store public paper-related records. Custom **Lexicons** will define the record types used by the app, starting with `app.papertrail.like` for likes. This lets us use AT Protocol for data storage as well as login.
 
-
 ## Features and Development Plan
 
 We started with the basic features needed to discover and interact with research papers. For the next sprints, we plan to expand AT Protocol integration and add more ways for users to share and discuss papers.
@@ -84,7 +85,7 @@ The table below shows the features we worked on during Sprint 1 and what we plan
 | AT Protocol Login | ✓ | | |
 | Paper Search and Discovery | ✓ | | |
 | Browse and Paper Details | ✓ | | |
-| Read Papers (PDF Reader) | ✓ | | |
+| Read Papers (OpenAlex PDF sources) | ✓ | | |
 | Like Papers | ✓ | | |
 | Bookmarks and Saved Papers | ✓ | | |
 | Publish Research Papers | | ✓ | |
@@ -98,7 +99,6 @@ The table below shows the features we worked on during Sprint 1 and what we plan
 | Direct Messaging | | | ✓ |
 
 Some features are still being planned and may change depending on our progress and implementation priorities.
-
 
 ## Proposed Tech Stack
 
@@ -139,6 +139,7 @@ More details are in [Architecture](docs/architecture.md) and [Architecture Decis
 - [Decisions](docs/decisions.md): proposed technical decisions and the reasoning behind them.
 - [MVP and Project Requirements](docs/mvp.md): our initial project goals, core features, user flow, and future ideas. 
 - [Authentication](docs/authentication.md): AT Protocol OAuth sign-in, local development, HTTPS deployment, and auth state integration.
+- [Publishing](docs/publishing.md): publication identity, metadata, PDF storage/retrieval, repository operations, retries and the #15 handoff.
 - [OpenAlex API Integration](docs/openalex.md): paper search, data mapping, and API configuration.
 - [Likes](docs/likes.md): like records, OAuth scope, and Constellation like counts.
 
