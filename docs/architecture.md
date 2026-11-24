@@ -1,6 +1,7 @@
 # PaperTrail Architecture
 
-This document outlines the proposed architecture for PaperTrail's initial MVP. The design focuses on keeping the application simple and using existing services for authentication, data storage, and paper discovery.
+This document outlines our proposed architecture for PaperTrail, starting with the initial MVP and the features we plan to add in later sprints. We aim to keep the application simple and use existing services for authentication, data storage, and paper discovery.
+
 
 ## Initial MVP Setup & Tech Stack
 
@@ -22,7 +23,7 @@ The proposed workflow is:
 
 1. A user logs in with AT Protocol OAuth.
 2. The React frontend communicates with the user's PDS using authorized requests.
-3. Saved-paper records are written to the user's repository.
+3. Public PaperTrail records can be stored in the user's PDS as repository integration is implemented.
 4. Paper searches use OpenAlex.
 5. Paper metadata is shown in the frontend.
 6. Like count comes from Constellation, which indexes `app.papertrail.like` records from firehose.
@@ -60,6 +61,23 @@ The proposed design uses two storage mechanisms.
 
 - Browser Storage: for information users do not want to share publicly, we can use browser-side storage such as localStorage or IndexedDB.
 
+
+## Planned PDS Integration
+
+We plan to use AT Protocol repositories for public PaperTrail records, including published papers, shared bookmarks, and Reading Room posts. Each type of record will follow a custom Lexicon so we can store and retrieve data in a consistent format.
+
+Our initial implementation will focus on publishing and retrieving paper records. We also plan to set up reusable repository operations that other features can use, instead of implementing similar PDS logic separately for each feature.
+
+Private information can remain in browser storage, while public records can be stored in the user's PDS.
+
+## Cross-User Record Discovery
+
+Since each user's public records are stored in their own PDS, we also need a way to find records from different users.
+
+This is especially important for Reading Rooms. When users open a paper's Reading Room, they should be able to see posts and replies from other researchers discussing the same paper.
+
+We plan to investigate how to retrieve these records across users and whether an indexing service is needed. The exact approach has not been decided yet.
+
 ## Backend Considerations
 
 For the initial MVP, we plan to avoid introducing a separate backend server or SQL database.
@@ -71,3 +89,6 @@ This approach helps us:
 - Use AT Protocol infrastructure for user-owned records.
 - Focus on implementing the application's core functionality within the project timeline.
 
+As we add features like Reading Rooms and cross-user record discovery, we may need additional services to find and retrieve public records across different users' PDS repositories. We will first look into existing AT Protocol services before deciding whether a separate backend or indexing service is necessary.
+
+For other planned features, such as sharing papers to Bluesky and direct messaging, we plan to investigate the available APIs and how they can work with our existing authentication setup.
