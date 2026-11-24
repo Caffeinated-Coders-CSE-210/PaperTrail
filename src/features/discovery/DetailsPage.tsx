@@ -5,6 +5,8 @@ import { LikeButton } from '../likes/LikeButton'
 import { BookmarkButton } from '../bookmarks/BookmarkButton'
 import { openAlexPaperService } from './openalex'
 import type { PaperService } from './service'
+import { SharePaper } from '../sharing/SharePaper'
+import { paperLink } from '../sharing/post'
 import { PdfReader } from '../reader/PdfReader'
 import './details.css'
 
@@ -57,6 +59,7 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
           </p>
           <LikeButton paperId={paper.id} />
           <BookmarkButton paper={paper} />
+          <SharePaper key={`share-${paper.id}`} title={paper.title} url={paperLink(paper.url, paper.doi, `https://openalex.org/${paper.id}`)} />
           <PdfReader pdfUrl={paper.pdfUrl} title={paper.title} sourceUrl={paper.url} />
         </>
       )}

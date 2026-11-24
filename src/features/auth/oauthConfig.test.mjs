@@ -4,7 +4,7 @@ import { createClientMetadata, OAUTH_SCOPE } from './oauthConfig.ts'
 test('deployment metadata requests the same narrow scopes as local sign-in', () => {
   const data = createClientMetadata('https://papertrail.example.com')
   assert.equal(data.scope, OAUTH_SCOPE)
-  assert.deepEqual(data.scope.split(' ').sort(), ['atproto','repo:app.papertrail.like','repo:app.papertrail.paper','blob:application/pdf'].sort())
+  assert.deepEqual(data.scope.split(' ').sort(), ['atproto','repo:app.papertrail.like','repo:app.papertrail.paper','blob:application/pdf','repo:app.bsky.feed.post?action=create'].sort())
   assert.equal(data.client_id, 'https://papertrail.example.com/client-metadata.json')
   assert.deepEqual(data.redirect_uris, ['https://papertrail.example.com/'])
 })
