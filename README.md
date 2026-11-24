@@ -43,6 +43,8 @@ test record and integration notes for issue #2.
 
 See [AGENTS.md](AGENTS.md) for service contracts, component conventions, and shared-file ownership.
 
+Browse also links to public papers from other PaperTrail accounts. See [Community discovery](docs/community-discovery.md) for publisher lookup and paper-specific records.
+
 ## End-to-end tests
 
 Install the Playwright browser once with `npx playwright install chromium`, then

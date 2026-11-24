@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { Paper, PaperId } from '../../shared/paper'
+import { PaperReaders } from '../community/PaperReaders'
 import { LikeButton } from '../likes/LikeButton'
 import { BookmarkButton } from '../bookmarks/BookmarkButton'
 import { openAlexPaperService } from './openalex'
@@ -58,6 +59,7 @@ export function DetailsPage({ service = openAlexPaperService }: { service?: Pape
               : 'Full-text link unavailable'}
           </p>
           <LikeButton paperId={paper.id} />
+          <PaperReaders key={paper.id} id={paper.id} />
           <BookmarkButton paper={paper} />
           <SharePaper key={`share-${paper.id}`} title={paper.title} url={paperLink(paper.url, paper.doi, `https://openalex.org/${paper.id}`)} />
           <PdfReader pdfUrl={paper.pdfUrl} title={paper.title} sourceUrl={paper.url} />
