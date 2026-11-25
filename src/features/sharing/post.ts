@@ -1,5 +1,6 @@
 import { TID } from '@atproto/common-web'
 import { isLexValue, lexEquals } from '@atproto/lex-data'
+import { isValidDatetime, isValidRecordKey } from '@atproto/syntax'
 import type { FetchHandler } from '../auth/session.ts'
 import { createRepositoryClient, PdsError } from '../repository/client.ts'
 
@@ -32,14 +33,30 @@ export function postContent(comment: string, uri: string) {
   }
 }
 
-export function preparePost(did: string, fetchHandler: FetchHandler, comment: string, uri: string) {
+export type PostAttempt = { did: string; comment: string; uri: string; rkey: string; createdAt: string }
+
+export function restorePostAttempt(serialized: string | null, did: string, uri: string): PostAttempt | null {
+  try {
+    const value = JSON.parse(serialized ?? 'null')
+    if (value && value.did === did && value.uri === uri && typeof value.comment === 'string' &&
+        typeof value.rkey === 'string' && isValidRecordKey(value.rkey) &&
+        typeof value.createdAt === 'string' && isValidDatetime(value.createdAt) && postContent(value.comment, uri).valid) return value
+  } catch { /* Ignore invalid local recovery data. */ }
+  return null
+}
+
+export function preparePost(did: string, fetchHandler: FetchHandler, comment: string, uri: string, previous?: PostAttempt) {
+  if (previous && (previous.did !== did || previous.uri !== uri || previous.comment !== comment)) {
+    throw new Error('The pending post belongs to a different account or paper.')
+  }
   const { text, facets, valid } = postContent(comment, uri)
   if (!valid) throw new Error('Shorten your post before sharing.')
-  const rkey = TID.nextStr()
-  const record = { $type: collection, text, facets, createdAt: new Date().toISOString() }
+  const attempt = previous ?? { did, comment, uri, rkey: TID.nextStr(), createdAt: new Date().toISOString() }
+  const { rkey, createdAt } = attempt
+  const record = { $type: collection, text, facets, createdAt }
   const client = createRepositoryClient(did, fetchHandler)
   const postUrl = `https://bsky.app/profile/${did}/post/${rkey}`
-  return async () => {
+  const send = async () => {
     try {
       await client.createRecord(collection, rkey, record)
     } catch (error) {
@@ -50,4 +67,5 @@ export function preparePost(did: string, fetchHandler: FetchHandler, comment: st
     }
     return postUrl
   }
+  return Object.assign(send, { attempt })
 }

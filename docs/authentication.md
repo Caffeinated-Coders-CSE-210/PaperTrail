@@ -34,6 +34,8 @@ See the [AT Protocol OAuth specification](https://atproto.com/specs/oauth) for m
 
 From the details of an OpenAlex or community paper, choose **Share to Bluesky**, edit the text, and confirm **Post to Bluesky**. The post contains a clickable paper link. The composer shows the posting account and returns a link to the confirmed post. Local development uses the public record explorer for community uploads that lack a paper URL or DOI. Regenerate deployment metadata and renew older sessions to grant the create-only feed-post permission.
 
+Unconfirmed shares retain their account DID, record key, timestamp, text and paper link in this tab's session storage, without credentials. After reauthorization, return to the same paper with the same account and choose **Retry post** to reuse the original record. Confirmation clears the recovery data. **Discard attempt** clears it explicitly and permits a new post, which can duplicate a post that already succeeded. Recovery requires session storage and does not extend to other tabs or devices.
+
 ## Feature integration
 
 `AuthProvider` restores the session at app startup and exposes the current `identity`, pending operation, error, authorized `fetchHandler`, and sign-in/sign-out actions through `useAuth()`. For actions that require sign-in, wait for restoration to finish and require a non-null identity before enabling the action. Use `identity.did` as the account key. The handle is for display and can change.

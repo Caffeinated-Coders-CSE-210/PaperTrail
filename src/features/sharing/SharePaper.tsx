@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import type { FetchHandler } from '../auth/session'
 import { PdsError } from '../repository/client'
-import { postContent, preparePost } from './post'
+import { postContent, preparePost, restorePostAttempt } from './post'
 import './sharing.css'
 
 type PaperInfo = { title: string; url: string }
@@ -16,12 +16,17 @@ export function SharePaper(props: PaperInfo) {
 }
 
 function Composer({ title, url, did, account, fetchHandler }: PaperInfo & { did: string; account: string; fetchHandler: FetchHandler }) {
-  const [open, setOpen] = useState(false)
-  const [comment, setComment] = useState(title)
+  // OAuth redirects can remount the whole app. Keep only recovery data, never credentials.
+  const storageKey = `papertrail:pending-share:${did}:${url}`
+  const [restored] = useState(() => {
+    try { return restorePostAttempt(sessionStorage.getItem(storageKey), did, url) } catch { return null }
+  })
+  const [open, setOpen] = useState(Boolean(restored))
+  const [comment, setComment] = useState(restored?.comment ?? title)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [published, setPublished] = useState('')
-  const attempt = useRef<ReturnType<typeof preparePost> | null>(null)
+  const attempt = useRef(restored)
   const sending = useRef(false)
   const { count, valid } = postContent(comment, url)
 
@@ -31,12 +36,19 @@ function Composer({ title, url, did, account, fetchHandler }: PaperInfo & { did:
     setBusy(true)
     setError('')
     try {
-      attempt.current ??= preparePost(did, fetchHandler, comment, url)
-      setPublished(await attempt.current())
+      const send = preparePost(did, fetchHandler, comment, url, attempt.current ?? undefined)
+      // Persist before sending; if storage is unavailable, do not risk an unrecoverable write.
+      try { sessionStorage.setItem(storageKey, JSON.stringify(send.attempt)) } catch {
+        setError('Enable session storage in this browser before posting so an interrupted post can be recovered.')
+        return
+      }
+      attempt.current = send.attempt
+      setPublished(await send())
+      try { sessionStorage.removeItem(storageKey) } catch { /* Confirmation still succeeded. */ }
+      attempt.current = null
     } catch (reason) {
       if (reason instanceof PdsError && ['authentication', 'forbidden', 'permission'].includes(reason.code)) {
         setError('Posting was denied. Sign out on Home and sign in again to authorize Bluesky posts.')
-        attempt.current = null
       } else if (reason instanceof PdsError && reason.code === 'rate-limit') {
         setError('Bluesky is limiting requests. Wait a moment and retry.')
       } else {
@@ -57,7 +69,11 @@ function Composer({ title, url, did, account, fetchHandler }: PaperInfo & { did:
     <p>{count}/300 characters · Posting as {account}</p>
     {!valid && <p role="alert">Shorten the post to fit the Bluesky text limit.</p>}
     {error && <p role="alert">{error}</p>}
+    {attempt.current && <p>This post may already be public. Retry checks the same post; discarding permits a new post.</p>}
     <button disabled={busy || !valid}>{busy ? 'Posting…' : attempt.current ? 'Retry post' : 'Post to Bluesky'}</button>
     {!attempt.current && <button type="button" onClick={() => { setError(''); setOpen(false) }}>Cancel</button>}
+    {attempt.current && <button type="button" disabled={busy} onClick={() => {
+      sessionStorage.removeItem(storageKey); attempt.current = null; setError(''); setOpen(false)
+    }}>Discard attempt</button>}
   </form>
 }

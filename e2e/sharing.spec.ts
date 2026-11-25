@@ -5,6 +5,7 @@ test('edits a paper post, handles missing scope and shows the confirmed Bluesky 
   const url = 'https://openalex.org/W7'
   let posts = 0
   let postUrl = ''
+  let originalPost: unknown
   await page.route('**/src/features/auth/browserAuth.ts*', route => route.fulfill({ contentType: 'text/javascript', body: `
     export const browserAuth = { onSessionEnded: () => () => {}, restoreSession: async () => ({ did: '${did}', handle: 'reader.test' }),
       getFetchHandler: () => (path, init) => fetch('https://pds.test' + path, init) }` }))
@@ -14,7 +15,11 @@ test('edits a paper post, handles missing scope and shows the confirmed Bluesky 
     if (route.request().method() === 'GET') return route.fulfill({ status: 400, json: { error: 'RecordNotFound' } })
     const data = route.request().postDataJSON()
     posts++
-    if (posts === 1) return route.fulfill({ status: 403, json: { error: 'InsufficientScope' } })
+    if (posts === 1) {
+      originalPost = data
+      return route.fulfill({ status: 403, json: { error: 'InsufficientScope' } })
+    }
+    expect(data).toEqual(originalPost)
     expect(data.repo).toBe(did)
     expect(data.collection).toBe('app.bsky.feed.post')
     expect(data.record.text).toBe('值得一读 🧠\n\nRead paper')
@@ -29,7 +34,9 @@ test('edits a paper post, handles missing scope and shows the confirmed Bluesky 
   expect(posts).toBe(0)
   await page.getByRole('button', { name: 'Post to Bluesky' }).click()
   await expect(page.getByRole('alert')).toContainText('Posting was denied')
-  await page.getByRole('button', { name: 'Post to Bluesky' }).click()
+  await page.reload()
+  await expect(page.getByLabel('Post text')).toHaveValue('值得一读 🧠')
+  await page.getByRole('button', { name: 'Retry post' }).click()
   await expect(page.getByRole('link', { name: 'View post' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'View post' })).toHaveAttribute('href', postUrl)
   expect(posts).toBe(2)
