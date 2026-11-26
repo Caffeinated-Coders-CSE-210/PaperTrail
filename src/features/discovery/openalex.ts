@@ -96,8 +96,9 @@ async function fetchOpenAlex(path: string, params = new URLSearchParams()): Prom
   return response
 }
 
-export async function listDefaultPapers(page = 1): Promise<Paper[]> {
+export async function listDefaultPapers(page = 1, fieldId?: string): Promise<Paper[]> {
   const params = new URLSearchParams({ per_page: String(PAPER_PAGE_SIZE), page: String(page) })
+  if (fieldId) params.set('filter', `primary_topic.field.id:${fieldId}`)
   const response = await fetchOpenAlex('/works', params)
   const data: OpenAlexSearchResponse = await response.json()
   if (!Array.isArray(data.results)) throw new Error('Unexpected response from OpenAlex')
@@ -106,19 +107,21 @@ export async function listDefaultPapers(page = 1): Promise<Paper[]> {
 
 export const openAlexPaperService: PaperService = {
   listDefaultPapers,
-  async searchPapers(query, searchType: SearchType = 'paper', page = 1) {
+  async searchPapers(query, searchType: SearchType = 'paper', page = 1, fieldId?: string) {
     const text = query.trim()
     if (!text) return []
 
     const params = new URLSearchParams({ per_page: String(PAPER_PAGE_SIZE), page: String(page) })
+    const filters = fieldId ? [`primary_topic.field.id:${fieldId}`] : []
     if (searchType === 'author') {
       const author = text.replace(/"/g, '')
       if (!author.trim()) return []
-      params.set('filter', `raw_author_name.search:"${author}"`)
+      filters.push(`raw_author_name.search:"${author}"`)
     } else {
       params.set('search', text)
     }
 
+    if (filters.length) params.set('filter', filters.join(','))
     const response = await fetchOpenAlex('/works', params)
     const data: OpenAlexSearchResponse = await response.json()
     if (!Array.isArray(data.results)) throw new Error('Unexpected response from OpenAlex')

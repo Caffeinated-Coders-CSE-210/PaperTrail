@@ -78,6 +78,8 @@ adapter still accepts optional API page arguments for other callers, but Browse
 always requests API page 1. Requests still depend on OpenAlex availability and
 rate limits.
 
+Browse offers the 26 fields from the [OpenAlex fields catalog](https://api.openalex.org/fields). Selecting an area adds `primary_topic.field.id` to the works request before OpenAlex applies the 20-result limit. The filter combines with paper and author searches. Choosing All research areas keeps the submitted query and resets pagination.
+
 For issue #2, the catalog consists of OpenAlex works, not community uploads. There
 is no local draft/published status. Cards show metadata and an abstract preview;
 details load the full metadata by route ID. PDF rendering and bookmarks are
