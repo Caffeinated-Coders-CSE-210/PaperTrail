@@ -1,0 +1,83 @@
+{
+  "lexicon": 1,
+  "id": "app.papertrail.paper",
+  "description": "Public research paper metadata and its PDF. Candidate namespace; authority and schema publication are pending.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": [
+          "title",
+          "authors",
+          "createdAt",
+          "pdf"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "authors": {
+            "type": "array",
+            "minLength": 1,
+            "maxLength": 50,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "year": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "abstract": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "doi": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000
+          },
+          "publicationDate": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "researchArea": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "keywords": {
+            "type": "array",
+            "maxLength": 30,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          },
+          "pdf": {
+            "type": "blob",
+            "accept": [
+              "application/pdf"
+            ],
+            "maxSize": 5242880
+          }
+        }
+      }
+    }
+  }
+}

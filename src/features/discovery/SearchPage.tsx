@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import type { Paper } from '../../shared/paper'
 import { openAlexPaperService } from './openalex'
 import { researchAreas } from './researchAreas'
@@ -55,6 +56,7 @@ export function SearchPage({ service = openAlexPaperService }: { service?: Paper
   return (
     <>
       <h1>Browse papers</h1>
+      <p><Link to="/community">Browse community papers</Link></p>
       <SearchBar
         onSearch={(query, searchType) => setRequest({ ...request, query, searchType })}
         onClear={() => setRequest({ ...request, query: '', searchType: 'paper' })}
