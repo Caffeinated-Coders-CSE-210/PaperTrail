@@ -32,7 +32,7 @@ The first demo follows sign-in → search → details → bookmark → saved pap
 | `/saved` | `src/features/bookmarks/SavedPage.tsx` | [Bookmarks and library #8](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/8) |
 | `/publish` | `src/features/publishing/AccountPublishingPage.tsx` (form) | [Paper publishing #37](https://github.com/Caffeinated-Coders-CSE-210/PaperTrail/issues/37) |
 | `/publications` | `src/features/publishing/AccountPublishingPage.tsx` (list) | #37 |
-| `/publications/:repoDid/:rkey` | `src/features/publishing/PublicationDetailsPage.tsx` | #37; reader integration follows in #15 |
+| `/publications/:repoDid/:rkey` | `src/features/publishing/PublicationDetailsPage.tsx` | #37 metadata/PDF retrieval; #15 uploaded-paper reader |
 
 To check routing, open **Search**, select a paper card, and refresh. Its metadata reloads from OpenAlex. **Saved papers** and **Home** remain reachable from the header. The deployment owner should configure the host to serve `index.html` for direct page requests.
 
@@ -141,7 +141,7 @@ More details are in [Architecture](docs/architecture.md) and [Architecture Decis
 - [Decisions](docs/decisions.md): proposed technical decisions and the reasoning behind them.
 - [MVP and Project Requirements](docs/mvp.md): our initial project goals, core features, user flow, and future ideas. 
 - [Authentication](docs/authentication.md): AT Protocol OAuth sign-in, local development, HTTPS deployment, and auth state integration.
-- [Publishing](docs/publishing.md): publication identity, metadata, PDF storage/retrieval, repository operations, retries and the #15 handoff.
+- [Publishing](docs/publishing.md): publication identity, metadata, PDF storage/retrieval, repository operations, retries and uploaded-paper reading.
 - [OpenAlex API Integration](docs/openalex.md): paper search, data mapping, and API configuration.
 - [Likes](docs/likes.md): like records, OAuth scope, and Constellation like counts.
 

@@ -2,7 +2,7 @@
 
 Browse → **Browse community papers** opens `/community`. It works signed out. The catalog asks the Bluesky relay for a page of repositories containing `app.papertrail.paper`, resolves each publisher's DID to their current PDS, and reads one page of publication records using the public repository client from #37. Both relay and PDS cursors are retained for Load more. A failed publisher can be retried independently of successful results. The relay may lag repository changes or have incomplete coverage.
 
-Each result links to the validated publication's DID and record key. The publisher shown is the repository owner. The paper authors come from its metadata. Records are merged by canonical AT URI, so different users can publish identically titled papers. Community search and research-area filtering cover the publications loaded so far, including additional pages as they arrive.
+Each result links to the validated publication's DID and record key. The details route loads metadata and verified PDF bytes for the shared reader without sign-in or navigation state; direct URLs and refresh work independently of the catalog. **Back to community papers** returns to `/community`, and **My publications** remains available separately. The publisher shown is the repository owner. The paper authors come from its metadata. Records are merged by canonical AT URI, so different users can publish identically titled papers. Community search and research-area filtering cover the publications loaded so far, including additional pages as they arrive.
 
 ## Paper-specific records for Reading Rooms
 

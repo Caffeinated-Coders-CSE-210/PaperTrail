@@ -23,11 +23,15 @@ This document summarizes the technical decisions we have made so far and the app
 | Publication identity | DID, fixed collection and record key; independent publication routes | Support direct access and PDS migration without changing OpenAlex IDs |
 | Metadata | Common `PaperMetadata` fields with source-aware references | Reuse display data while preserving existing OpenAlex consumers |
 | PDF persistence | Upload a blob, then publish a record referencing it | Persist file identity across refreshes; an upload alone is temporary |
-| PDF retrieval | Return verified bytes as a Blob; leave reader adaptation to #15 | Separate storage/retrieval from rendering and object URL lifecycle |
+| PDF retrieval | Return verified bytes as a Blob; pass stable Blob input to the shared reader (#15) | Separate verified retrieval from rendering; create temporary object URLs only for downloads |
 | Repository reuse | Thin account-bound CRUD and cursor pagination | Support current features without a large generic framework or a likes rewrite |
-| First publishing UI | Form, public confirmation, My publications and metadata details | Keep global discovery (#30) and uploaded-paper reading (#15) separate |
+| First publishing UI | Form, public confirmation, My publications and metadata details | Reuse separate community discovery (#30) and reader (#15) modules |
 
 The paper collection is experimental until namespace authority is confirmed. Direct PDF byte retrieval has been tested against one provider; production browser distribution remains open. See [Publishing](publishing.md) for contracts and limitations.
+
+## Discovery and sharing
+
+Community discovery is implemented with relay repository listing and public PDS validation; paper backlinks use Constellation. See [Public record discovery](community-discovery.md). Bluesky sharing is implemented with the current account's authorized client and persisted retry recovery. Neither feature depends on the reader's PDF state.
 
 ## Planned Feature Decisions
 
@@ -35,11 +39,9 @@ As we add more features, we plan to build on our existing AT Protocol integratio
 
 | Feature | Proposed approach | Rationale |
 | --- | --- | --- |
-| Cross-User Record Discovery | Investigate ways to find public records across users' PDS repositories | Allow users to discover papers and discussions shared by others |
 | Reading Rooms | Store discussion posts as AT Protocol records and connect them to the related paper | Let users share notes and questions about the same paper |
 | Discussion Replies | Extend Reading Room records to support replies | Allow users to respond to questions and continue discussions |
 | Bookmarks in PDS | Keep private bookmarks in browser storage and use PDS records for bookmarks users choose to share | Support public sharing while keeping private bookmarks local |
-| Share to Bluesky | Use the Bluesky API to share paper links and optional comments | Let users share papers through their Bluesky account |
 | Direct Messaging | Investigate available messaging APIs and authentication requirements | Explore private communication without building a messaging system from scratch |
 
 We may need additional services for cross-user record discovery, but we will first look into existing AT Protocol options before deciding whether a separate backend or indexing service is necessary.
