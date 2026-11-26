@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, test, vi } from 'vitest'
 import { useAuth } from '../auth/AuthProvider'
@@ -86,4 +86,43 @@ test('unavailable recovery storage prevents sending and explains how to recover'
   fireEvent.click(screen.getByRole('button', { name: 'Post to Bluesky' }))
   expect((await screen.findByRole('alert')).textContent).toContain('Enable session storage')
   expect(writes).toBe(0)
+})
+
+test('an older send completing after remount cannot erase a newer pending share', async () => {
+  let finishOld!: (value: Response) => void
+  let loseNew!: (reason: Error) => void
+  const oldResponse = new Promise<Response>(resolve => { finishOld = resolve })
+  const newResponse = new Promise<Response>((_resolve, reject) => { loseNew = reject })
+  const writes: { rkey: string }[] = []
+  vi.mocked(useAuth).mockReturnValue(account(async (path, init) => {
+    if (!path.includes('createRecord')) return Response.json({ error: 'RecordNotFound' }, { status: 400 })
+    const write = JSON.parse(init!.body as string)
+    writes.push(write)
+    if (writes.length === 1) return oldResponse
+    if (writes.length === 2) return newResponse
+    return Response.json({ uri: `at://${did}/app.bsky.feed.post/${write.rkey}`, cid })
+  }))
+  const first = render(view())
+  fireEvent.click(screen.getByRole('button', { name: 'Share to Bluesky' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Post to Bluesky' }))
+  first.unmount()
+  const second = render(view())
+  fireEvent.click(screen.getByRole('button', { name: 'Discard attempt' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Share to Bluesky' }))
+  fireEvent.change(screen.getByLabelText('Post text'), { target: { value: 'A different comment' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Post to Bluesky' }))
+  expect(writes).toHaveLength(2)
+  expect(writes[1].rkey).not.toBe(writes[0].rkey)
+  await act(async () => {
+    finishOld(Response.json({ uri: `at://${did}/app.bsky.feed.post/${writes[0].rkey}`, cid }))
+  })
+  await act(async () => { loseNew(new Error('Response lost')) })
+  await screen.findByRole('alert')
+  second.unmount()
+  render(view())
+  expect((screen.getByLabelText('Post text') as HTMLTextAreaElement).value).toBe('A different comment')
+  fireEvent.click(screen.getByRole('button', { name: 'Retry post' }))
+  await screen.findByRole('link', { name: 'View post' })
+  expect(writes).toHaveLength(3)
+  expect(writes[2]).toEqual(writes[1])
 })

@@ -44,7 +44,10 @@ function Composer({ title, url, did, account, fetchHandler }: PaperInfo & { did:
       }
       attempt.current = send.attempt
       setPublished(await send())
-      try { sessionStorage.removeItem(storageKey) } catch { /* Confirmation still succeeded. */ }
+      try {
+        const stored = restorePostAttempt(sessionStorage.getItem(storageKey), did, url)
+        if (stored?.rkey === send.attempt.rkey) sessionStorage.removeItem(storageKey)
+      } catch { /* Confirmation still succeeded. */ }
       attempt.current = null
     } catch (reason) {
       if (reason instanceof PdsError && ['authentication', 'forbidden', 'permission'].includes(reason.code)) {
