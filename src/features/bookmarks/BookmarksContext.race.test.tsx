@@ -1,6 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { useLayoutEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router'
 import { afterEach, expect, test } from 'vitest'
@@ -33,33 +33,43 @@ function heldStorage() {
   return { storage, saved, release: () => releases.shift()?.(), saveCalls: () => saveCalls }
 }
 
-function importSource(local: Paper[]): BookmarkImportSource {
+function importSource(local: Paper[], onMarkUploaded = () => {}): BookmarkImportSource {
   return {
     async listPending() { return [...local] },
-    async markUploaded(id) { local.splice(local.findIndex((paper) => paper.id === id) >>> 0, 1) },
+    async markUploaded(id) {
+      onMarkUploaded()
+      local.splice(local.findIndex((paper) => paper.id === id) >>> 0, 1)
+    },
     async keepLocal() {},
   }
 }
 
-/** Finishes held work during the commit that mounts it, before React runs passive effects. */
-function OnCommit({ run }: { run: () => void }) {
+/**
+ * Releases held work in a layout effect during the commit that mounts it, and reports when that commit's
+ * passive effects run. As a child of the provider, its passive effect runs before the provider's.
+ */
+function OnCommit({ run, onPassive }: { run: () => void; onPassive: () => void }) {
   useLayoutEffect(run, [run])
+  useEffect(onPassive, [onPassive])
   return null
 }
 
 test('an upload cannot start another save in the gap after the new account commits', async () => {
   const actEnvironment = (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT
-  // act() flushes passive effects immediately, which hides the gap, so use React's real scheduler.
+  // act() flushes passive effects before returning, which closes the gap, so use React's real scheduler.
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false
   const container = document.body.appendChild(document.createElement('div'))
   const root = createRoot(container)
   try {
     const held = heldStorage()
     const local = [makePaper({ id: 'W2', title: 'Newer' }), makePaper({ id: 'W1', title: 'Older' })]
+    let passiveRan = false
+    let resumedBeforePassive: boolean | null = null
     const backend: BookmarkBackend = {
       isLocal: false,
       create: (did) => (did === first ? held.storage : heldStorage().storage),
-      importSource: (did) => importSource(did === first ? local : []),
+      // The loop calls markUploaded as soon as the held save resolves, before checking the account.
+      importSource: (did) => importSource(did === first ? local : [], () => { resumedBeforePassive ??= !passiveRan }),
     }
     const page = (did: string, extra?: ReactNode) => (
       <MemoryRouter>
@@ -71,9 +81,15 @@ test('an upload cannot start another save in the gap after the new account commi
     ;(await screen.findByRole('button', { name: 'Upload 2 bookmarks' })).click()
     await waitFor(() => expect(held.saveCalls()).toBe(1))
 
-    root.render(page(second, <OnCommit run={held.release} />))
+    root.render(page(second, <OnCommit run={held.release} onPassive={() => { passiveRan = true }} />))
     await screen.findByText(/haven’t bookmarked any papers yet/)
     await waitFor(() => expect(local.map(({ id }) => id)).toEqual(['W2']))
+
+    // Precondition: the loop resumed inside the gap, after the commit but before its passive effects.
+    // With React 19.3.1, a default-priority root.render() commits in a scheduler task and schedules passive
+    // effects for a later task, so the microtask continuation runs first. If that ever changes, this fails
+    // loudly instead of letting the assertions below pass without exercising the race.
+    expect(resumedBeforePassive, 'upload must resume before passive effects run').toBe(true)
 
     expect(held.saveCalls()).toBe(1)
     expect(held.saved.map(({ id }) => id)).toEqual(['W1'])
