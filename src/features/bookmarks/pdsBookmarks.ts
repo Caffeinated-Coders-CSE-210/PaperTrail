@@ -26,8 +26,11 @@ export function createPdsBookmarkStorage(repository: BookmarkRepository): Bookma
         cursor = result.cursor
         if (!cursor) break
       }
+      // A partial list would silently hide older bookmarks, so fail visibly instead.
+      if (cursor) throw new Error(`More than ${MAX_PAGES * PAGE_SIZE} bookmarks; the saved list is incomplete.`)
       return bookmarks
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        // Imports can share a timestamp, so the paper ID keeps the order stable.
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.paper.id.localeCompare(b.paper.id))
         .map(({ paper }) => paper)
     },
 

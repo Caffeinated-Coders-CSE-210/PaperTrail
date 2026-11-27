@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
@@ -109,4 +109,48 @@ test('missing permission tells the user to sign in again', async () => {
 
   expect((await screen.findByRole('alert')).textContent).toContain('Sign out and sign in again')
   expect(screen.getByText('Bookmarks are public on your AT Protocol account.')).toBeTruthy()
+})
+
+test('switching accounts mid-upload stops the upload and keeps it out of the new account', async () => {
+  const user = userEvent.setup()
+  const { backend, account, local } = accountBackend({ local: [newer, older] })
+  const other = accountBackend()
+  const storage = backend.create(did)
+  let saveCalls = 0
+  let finishFirstSave = () => {}
+  const slowStorage: BookmarkStorage = {
+    ...storage,
+    savePaper(paper) {
+      saveCalls += 1
+      return new Promise<void>((resolve) => {
+        finishFirstSave = () => { void storage.savePaper(paper).then(resolve) }
+      })
+    },
+  }
+  const switching: BookmarkBackend = {
+    isLocal: false,
+    create: (account) => (account === did ? slowStorage : other.backend.create(account)),
+    importSource: (account) => (account === did ? backend.importSource!(account) : other.backend.importSource!(account)),
+  }
+  const page = (accountDid: string) => (
+    <MemoryRouter>
+      <BookmarksProvider accountDid={accountDid} backend={switching}><SavedPage /></BookmarksProvider>
+    </MemoryRouter>
+  )
+
+  const view = render(page(did))
+  await user.click(await screen.findByRole('button', { name: 'Upload 2 bookmarks' }))
+  await screen.findByRole('button', { name: 'Uploading…' })
+
+  view.rerender(page('did:plc:secondaccount'))
+  await screen.findByText(/haven’t bookmarked any papers yet/)
+  finishFirstSave()
+
+  // The finished upload is cleared from the first account's browser list...
+  await waitFor(() => expect(local).toEqual([newer]))
+  expect(account.map(({ id }) => id)).toEqual(['W1'])
+  // ...but the loop stops, and nothing leaks into the second account's page.
+  expect(saveCalls).toBe(1)
+  expect(screen.queryByRole('link', { name: 'Older local paper' })).toBeNull()
+  expect(screen.getByText(/haven’t bookmarked any papers yet/)).toBeTruthy()
 })

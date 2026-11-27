@@ -118,3 +118,16 @@ test('the import source offers local bookmarks until they are uploaded or kept p
   assert.deepEqual((await local.listSavedPapers()).map(({ id }) => id), ['W1'], 'kept bookmarks stay in this browser')
   assert.deepEqual(await createLocalImportSource('did:plc:bbbbbbbbbbbbbbbbbbbbbbbb', store).listPending(), [])
 })
+
+test('an account with more bookmarks than the page limit fails visibly instead of hiding older ones', async () => {
+  const pds = fakePds({ pageSize: 1 })
+  for (let index = 1; index <= 51; index += 1) pds.records.set(`W${index}`, bookmarkRecord(paper(`W${index}`)))
+  await assert.rejects(pds.storage.listSavedPapers(), /incomplete/)
+})
+
+test('bookmarks saved in the same millisecond keep a stable order', async () => {
+  const pds = fakePds()
+  const now = new Date('2026-01-01T00:00:00Z')
+  for (const id of ['W3', 'W1', 'W2']) pds.records.set(id, bookmarkRecord(paper(id), now))
+  assert.deepEqual((await pds.storage.listSavedPapers()).map(({ id }) => id), ['W1', 'W2', 'W3'])
+})

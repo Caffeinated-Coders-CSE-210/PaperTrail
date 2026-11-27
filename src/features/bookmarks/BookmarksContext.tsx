@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Paper, PaperId } from '../../shared/paper'
 import { createLocalBookmarkStorage, type BookmarkImportSource } from './localBookmarks'
 import type { BookmarkStorage } from './storage'
@@ -98,11 +98,15 @@ export function BookmarksProvider({
   const [importable, setImportable] = useState<Paper[]>([])
   const [importing, setImporting] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+  /** The active account's storage. Async work from an earlier account checks this before touching shared state. */
+  const currentStorage = useRef(storage)
 
   useEffect(() => {
+    currentStorage.current = storage
     setPapers([])
     setPending(new Set())
     setImportable([])
+    setImporting(false)
     setLoadError(storageError)
     if (storageError) {
       setStatus('error')
@@ -150,6 +154,7 @@ export function BookmarksProvider({
   const value = useMemo<BookmarksValue>(() => {
     const savedIds = new Set(papers.map((paper) => paper.id))
     const ready = storage && status === 'ready' ? storage : null
+    const isCurrent = () => ready !== null && currentStorage.current === ready
 
     function addPaper(paper: Paper) {
       setPapers((current) => (current.some((saved) => saved.id === paper.id)
@@ -167,12 +172,12 @@ export function BookmarksProvider({
       async savePaper(paper) {
         if (!ready) return signedOut()
         await track(paper.id, () => ready.savePaper(paper))
-        addPaper(paper)
+        if (isCurrent()) addPaper(paper)
       },
       async removePaper(id) {
         if (!ready) return signedOut()
         await track(id, () => ready.removeSavedPaper(id))
-        setPapers((current) => current.filter((saved) => saved.id !== id))
+        if (isCurrent()) setPapers((current) => current.filter((saved) => saved.id !== id))
       },
       reload: () => {
         if (storageError) setCreationRetryKey((key) => key + 1)
@@ -186,13 +191,17 @@ export function BookmarksProvider({
         try {
           // Oldest first, so the newest local bookmark gets the newest timestamp.
           for (const paper of [...importable].reverse()) {
+            // Stop if the account changed; this loop's storage and source belong to the earlier account.
+            if (!isCurrent()) return
             await ready.savePaper(paper)
-            addPaper(paper)
+            // The upload finished, so clear it from that account's browser list even if the account changed.
             await importSource.markUploaded(paper.id)
+            if (!isCurrent()) return
+            addPaper(paper)
             setImportable((current) => current.filter((local) => local.id !== paper.id))
           }
         } finally {
-          setImporting(false)
+          if (isCurrent()) setImporting(false)
         }
       },
       async keepLocalBookmarks() {
