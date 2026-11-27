@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import type { Paper } from '../../shared/paper'
 import { useBookmarks } from './BookmarksContext'
+import { bookmarkErrorMessage } from './errors'
 import './bookmarks.css'
 
 /** Discovery mounts this on the details page with the loaded paper. */
 export function BookmarkButton({ paper }: { paper: Paper }) {
-  const { status, isLocal, isSaved, isPending, savePaper, removePaper, reload } = useBookmarks()
+  const { status, loadError, isLocal, isSaved, isPending, savePaper, removePaper, reload } = useBookmarks()
   const [error, setError] = useState<string | null>(null)
 
   if (status === 'signed-out') {
@@ -20,7 +21,7 @@ export function BookmarkButton({ paper }: { paper: Paper }) {
   if (status === 'error') {
     return (
       <p className="bookmarks-action bookmarks-error" role="alert">
-        Your bookmarks could not be loaded.{' '}
+        {bookmarkErrorMessage(loadError, 'Your bookmarks could not be loaded.')}{' '}
         <button type="button" className="bookmarks-link-button" onClick={reload}>Retry</button>
       </p>
     )
@@ -34,8 +35,11 @@ export function BookmarkButton({ paper }: { paper: Paper }) {
     try {
       if (saved) await removePaper(paper.id)
       else await savePaper(paper)
-    } catch {
-      setError(saved ? 'Could not remove this bookmark. Try again.' : 'Could not bookmark this paper. Try again.')
+    } catch (reason) {
+      setError(bookmarkErrorMessage(
+        reason,
+        saved ? 'Could not remove this bookmark. Try again.' : 'Could not bookmark this paper. Try again.',
+      ))
     }
   }
 
@@ -55,7 +59,9 @@ export function BookmarkButton({ paper }: { paper: Paper }) {
       </button>
       {saved && !pending ? <Link to="/saved">View saved papers</Link> : null}
       {error ? <p className="bookmarks-error" role="alert">{error}</p> : null}
-      {isLocal ? <p className="bookmarks-note">Bookmarks are saved in this browser only.</p> : null}
+      <p className="bookmarks-note">
+        {isLocal ? 'Bookmarks are saved in this browser only.' : 'Bookmarks are public on your AT Protocol account.'}
+      </p>
     </div>
   )
 }

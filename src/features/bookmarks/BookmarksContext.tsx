@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Paper, PaperId } from '../../shared/paper'
-import { createLocalBookmarkStorage } from './localBookmarks'
+import { createLocalBookmarkStorage, type BookmarkImportSource } from './localBookmarks'
 import type { BookmarkStorage } from './storage'
 
 /** How bookmarks are stored for an account. `isLocal` storage must be disclosed in the UI. */
 export interface BookmarkBackend {
   isLocal: boolean
   create(did: string): BookmarkStorage
+  /** Browser bookmarks the user may upload. Only account-backed storage offers this. */
+  importSource?(did: string): BookmarkImportSource
 }
 
 export const localBookmarkBackend: BookmarkBackend = {
@@ -18,6 +20,8 @@ export type BookmarksStatus = 'signed-out' | 'loading' | 'ready' | 'error'
 
 interface BookmarksValue {
   status: BookmarksStatus
+  /** Why loading failed, for `bookmarkErrorMessage`. `null` unless `status` is `error`. */
+  loadError: unknown
   /** Saved papers, newest first. Empty unless `status` is `ready`. */
   papers: Paper[]
   isLocal: boolean
@@ -28,6 +32,13 @@ interface BookmarksValue {
   /** Rejects if the bookmark could not be removed. */
   removePaper(id: PaperId): Promise<void>
   reload(): void
+  /** Browser-only bookmarks the user hasn't uploaded or kept private yet. */
+  importable: Paper[]
+  importing: boolean
+  /** Uploads `importable` to the account. Rejects on the first failure; uploaded papers stay uploaded. */
+  importLocalBookmarks(): Promise<void>
+  /** Leaves `importable` in this browser and stops offering the upload. */
+  keepLocalBookmarks(): Promise<void>
 }
 
 const signedOut = async () => { throw new Error('Sign in to manage bookmarks') }
@@ -35,6 +46,7 @@ const signedOut = async () => { throw new Error('Sign in to manage bookmarks') }
 /** Without a provider, the bookmark UI renders as signed out. */
 const BookmarksContext = createContext<BookmarksValue>({
   status: 'signed-out',
+  loadError: null,
   papers: [],
   isLocal: true,
   isSaved: () => false,
@@ -42,6 +54,10 @@ const BookmarksContext = createContext<BookmarksValue>({
   savePaper: signedOut,
   removePaper: signedOut,
   reload: () => {},
+  importable: [],
+  importing: false,
+  importLocalBookmarks: signedOut,
+  keepLocalBookmarks: signedOut,
 })
 
 /**
@@ -61,24 +77,33 @@ export function BookmarksProvider({
   children: ReactNode
 }) {
   const [creationRetryKey, setCreationRetryKey] = useState(0)
-  const { storage, storageError } = useMemo(() => {
-    if (!accountDid) return { storage: null, storageError: false }
+  const { storage, importSource, storageError } = useMemo(() => {
+    if (!accountDid) return { storage: null, importSource: null, storageError: null }
     try {
-      return { storage: backend.create(accountDid), storageError: false }
-    } catch {
-      return { storage: null, storageError: true }
+      return {
+        storage: backend.create(accountDid),
+        importSource: backend.importSource?.(accountDid) ?? null,
+        storageError: null,
+      }
+    } catch (error) {
+      return { storage: null, importSource: null, storageError: error ?? new Error('Bookmarks unavailable') }
     }
   }, [accountDid, backend, creationRetryKey])
   const [papers, setPapers] = useState<Paper[]>([])
   const [status, setStatus] = useState<BookmarksStatus>(
     storageError ? 'error' : storage || authPending ? 'loading' : 'signed-out',
   )
+  const [loadError, setLoadError] = useState<unknown>(storageError)
   const [pending, setPending] = useState<ReadonlySet<PaperId>>(new Set())
+  const [importable, setImportable] = useState<Paper[]>([])
+  const [importing, setImporting] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     setPapers([])
     setPending(new Set())
+    setImportable([])
+    setLoadError(storageError)
     if (storageError) {
       setStatus('error')
       return
@@ -95,10 +120,19 @@ export function BookmarksProvider({
         setPapers(saved)
         setStatus('ready')
       },
-      () => { if (active) setStatus('error') },
+      (error: unknown) => {
+        if (!active) return
+        setLoadError(error)
+        setStatus('error')
+      },
+    )
+    // A broken browser store shouldn't block the account library, so a failure just skips the offer.
+    importSource?.listPending().then(
+      (local) => { if (active) setImportable(local) },
+      () => {},
     )
     return () => { active = false }
-  }, [storage, storageError, authPending, reloadKey])
+  }, [storage, importSource, storageError, authPending, reloadKey])
 
   const track = useCallback(async (id: PaperId, operation: () => Promise<void>) => {
     setPending((ids) => new Set(ids).add(id))
@@ -115,30 +149,59 @@ export function BookmarksProvider({
 
   const value = useMemo<BookmarksValue>(() => {
     const savedIds = new Set(papers.map((paper) => paper.id))
+    const ready = storage && status === 'ready' ? storage : null
+
+    function addPaper(paper: Paper) {
+      setPapers((current) => (current.some((saved) => saved.id === paper.id)
+        ? current.map((saved) => (saved.id === paper.id ? paper : saved))
+        : [paper, ...current]))
+    }
+
     return {
       status,
+      loadError,
       papers,
       isLocal: backend.isLocal,
       isSaved: (id) => savedIds.has(id),
       isPending: (id) => pending.has(id),
       async savePaper(paper) {
-        if (!storage || status !== 'ready') return signedOut()
-        await track(paper.id, () => storage.savePaper(paper))
-        setPapers((current) => (current.some((saved) => saved.id === paper.id)
-          ? current.map((saved) => (saved.id === paper.id ? paper : saved))
-          : [paper, ...current]))
+        if (!ready) return signedOut()
+        await track(paper.id, () => ready.savePaper(paper))
+        addPaper(paper)
       },
       async removePaper(id) {
-        if (!storage || status !== 'ready') return signedOut()
-        await track(id, () => storage.removeSavedPaper(id))
+        if (!ready) return signedOut()
+        await track(id, () => ready.removeSavedPaper(id))
         setPapers((current) => current.filter((saved) => saved.id !== id))
       },
       reload: () => {
         if (storageError) setCreationRetryKey((key) => key + 1)
         else setReloadKey((key) => key + 1)
       },
+      importable,
+      importing,
+      async importLocalBookmarks() {
+        if (!ready || !importSource || importing) return signedOut()
+        setImporting(true)
+        try {
+          // Oldest first, so the newest local bookmark gets the newest timestamp.
+          for (const paper of [...importable].reverse()) {
+            await ready.savePaper(paper)
+            addPaper(paper)
+            await importSource.markUploaded(paper.id)
+            setImportable((current) => current.filter((local) => local.id !== paper.id))
+          }
+        } finally {
+          setImporting(false)
+        }
+      },
+      async keepLocalBookmarks() {
+        if (!importSource) return signedOut()
+        await importSource.keepLocal()
+        setImportable([])
+      },
     }
-  }, [status, papers, pending, storage, storageError, backend.isLocal, track])
+  }, [status, loadError, papers, pending, storage, importSource, storageError, backend.isLocal, track, importable, importing])
 
   return <BookmarksContext value={value}>{children}</BookmarksContext>
 }

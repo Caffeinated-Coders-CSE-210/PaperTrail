@@ -1,0 +1,53 @@
+{
+  "lexicon": 1,
+  "id": "app.papertrail.bookmark",
+  "description": "A public bookmark of an OpenAlex paper. The record key is the paper's short OpenAlex work ID, so an account holds at most one bookmark per paper. Candidate namespace; authority and schema publication are pending.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["subject", "paper", "createdAt"],
+        "properties": {
+          "subject": {
+            "type": "string",
+            "format": "uri",
+            "description": "OpenAlex work URL, e.g. https://openalex.org/W2741809807.",
+            "maxLength": 100
+          },
+          "paper": {
+            "type": "ref",
+            "ref": "#paperSnapshot"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "paperSnapshot": {
+      "type": "object",
+      "description": "Metadata copied when the paper was bookmarked, so a saved list renders without refetching OpenAlex.",
+      "required": ["title", "authors"],
+      "properties": {
+        "title": { "type": "string", "maxLength": 1000 },
+        "authors": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 300 }
+        },
+        "year": { "type": "integer", "minimum": 1, "maximum": 9999 },
+        "doi": { "type": "string", "maxLength": 500 },
+        "url": { "type": "string", "format": "uri", "maxLength": 2000 },
+        "publicationDate": { "type": "string", "maxLength": 10 },
+        "researchArea": { "type": "string", "maxLength": 300 },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 100 }
+        },
+        "pdfUrl": { "type": "string", "format": "uri", "maxLength": 2000 }
+      }
+    }
+  }
+}

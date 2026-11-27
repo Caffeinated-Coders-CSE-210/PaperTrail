@@ -1,4 +1,4 @@
-import type { Paper } from '../../shared/paper'
+import type { Paper, PaperId } from '../../shared/paper'
 import type { BookmarkStorage } from './storage'
 
 type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>
@@ -56,6 +56,37 @@ export function createLocalBookmarkStorage(
 
     async removeSavedPaper(id) {
       write(read().filter((saved) => saved.id !== id))
+    },
+  }
+}
+
+/** Browser bookmarks waiting for the user to upload them to their account or keep them private. */
+export interface BookmarkImportSource {
+  /** Local bookmarks to offer for upload, newest first. Empty once the user keeps them private. */
+  listPending(): Promise<Paper[]>
+  /** Removes a bookmark from this browser after it reaches the account. */
+  markUploaded(id: PaperId): Promise<void>
+  /** Keeps the remaining bookmarks in this browser and stops offering them. */
+  keepLocal(): Promise<void>
+}
+
+export function importDismissedKey(did: string) {
+  return `papertrail.bookmarks.import-dismissed.v1:${did}`
+}
+
+export function createLocalImportSource(
+  did: string,
+  store: KeyValueStore = localStorage,
+): BookmarkImportSource {
+  const local = createLocalBookmarkStorage(did, store)
+  return {
+    async listPending() {
+      if (store.getItem(importDismissedKey(did)) === 'true') return []
+      return local.listSavedPapers()
+    },
+    markUploaded: (id) => local.removeSavedPaper(id),
+    async keepLocal() {
+      store.setItem(importDismissedKey(did), 'true')
     },
   }
 }
