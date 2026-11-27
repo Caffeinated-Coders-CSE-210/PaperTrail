@@ -167,7 +167,10 @@ function PdfSession({ file, title, onRetry }: { file: string | Blob; title: stri
         <button type="button" disabled={!ready || downloading} onClick={() => void download()}>{downloading ? 'Downloading…' : 'Download PDF'}</button>
       </div>
       {pageError && <p id={`${inputId}-error`} role="alert">{pageError}</p>}
-      {downloadError && <p role="alert">{downloadError}</p>}
+      {downloadError && <div className="pdf-reader__error">
+        <p role="alert">{downloadError}</p>
+        {typeof file !== 'string' && !error && <button type="button" onClick={onRetry}>Retry PDF</button>}
+      </div>}
       {error && <div className="pdf-reader__error">
         <p role="alert">{error}</p>
         <button type="button" onClick={onRetry}>Retry PDF</button>

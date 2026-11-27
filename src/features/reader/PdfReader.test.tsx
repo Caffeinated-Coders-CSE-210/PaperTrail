@@ -225,6 +225,37 @@ describe('verified Blob inputs', () => {
     expect(screen.getByText('100%')).toBeTruthy()
   })
 
+  it('recovers a Blob download failure through Retry PDF and downloads successfully afterwards', async () => {
+    engine.getData.mockRejectedValueOnce(new Error('Bytes unavailable'))
+    const create = vi.fn(() => 'blob:download')
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = create
+      static revokeObjectURL = vi.fn()
+    })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const user = userEvent.setup()
+    render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" />)
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    await user.click(screen.getByRole('button', { name: 'Download PDF' }))
+    expect(screen.getByRole('alert').textContent).toMatch(/download failed/i)
+    expect((screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Retry PDF' }))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect((screen.getByRole('textbox', { name: 'Page number' }) as HTMLInputElement).value).toBe('1')
+    await user.click(screen.getByRole('button', { name: 'Download PDF' }))
+    expect(click).toHaveBeenCalledOnce()
+    expect(create).toHaveBeenCalledOnce()
+  })
+
+  it('delegates a Blob download recovery to the publication retrieval owner', async () => {
+    engine.getData.mockRejectedValue(new Error('Bytes unavailable'))
+    const onRetry = vi.fn()
+    render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" onRetry={onRetry} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Retry PDF' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
   it('retries a failed Blob render', async () => {
     engine.load = 'error'
     render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" />)
