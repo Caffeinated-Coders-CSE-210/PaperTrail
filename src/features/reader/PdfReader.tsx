@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -10,11 +10,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/legacy/build/pdf.worker.min.mjs', import.meta.url,
 ).toString()
 
-export interface PdfReaderProps {
-  pdfUrl: string | null
+export type PdfReaderProps = {
   title: string
   sourceUrl?: string | null
-}
+  /** A publication owner can retry retrieval as well as rendering. */
+  onRetry?: () => void
+} & ({ pdfUrl: string | null; pdfBlob?: never } | { pdfBlob: Blob; pdfUrl?: never })
 
 function webUrl(value: string | null | undefined) {
   if (!value?.trim()) return null
@@ -26,18 +27,25 @@ function webUrl(value: string | null | undefined) {
   }
 }
 
-export function PdfReader({ pdfUrl, title, sourceUrl }: PdfReaderProps) {
+export function PdfReader({ pdfUrl, pdfBlob, title, sourceUrl, onRetry }: PdfReaderProps) {
   const [attempt, setAttempt] = useState(0)
   const pdf = webUrl(pdfUrl)
+  // Immutable Blob views give each retry a fresh React-PDF resource identity.
+  const file = useMemo(() => pdfBlob ? pdfBlob.slice(0, pdfBlob.size, pdfBlob.type) : pdf, [pdfBlob, pdf, attempt])
+  const [session, setSession] = useState({ file, title, attempt, id: 0 })
+  // Reset before committing children so a source change cannot show an old page.
+  if (session.file !== file || session.title !== title || session.attempt !== attempt) {
+    setSession({ file, title, attempt, id: session.id + 1 })
+  }
   const source = webUrl(sourceUrl)
   const insecure = pdf?.startsWith('http:') && window.location.protocol === 'https:'
 
   return (
     <section className="pdf-reader" aria-label={`PDF reader: ${title}`}>
-      {!pdfUrl?.trim() ? <p role="status">No PDF is available for this paper.</p>
-        : !pdf ? <p role="alert">Invalid PDF link. Visit the paper page if available.</p>
+      {!pdfBlob && !pdfUrl?.trim() ? <p role="status">No PDF is available for this paper.</p>
+        : !pdfBlob && !pdf ? <p role="alert">Invalid PDF link. Visit the paper page if available.</p>
           : insecure ? <p role="alert">This PDF uses insecure HTTP and cannot be loaded inside this secure page. You can open the source separately.</p>
-            : <PdfSession key={JSON.stringify([pdf, title, attempt])} pdfUrl={pdf} title={title} onRetry={() => setAttempt((value) => value + 1)} />}
+            : <PdfSession key={session.id} file={file!} title={title} onRetry={onRetry ?? (() => setAttempt((value) => value + 1))} />}
       <div className="pdf-reader__links">
         {pdf && <a href={pdf} target="_blank" rel="noopener noreferrer">Open source PDF</a>}
         {source && <a href={source} target="_blank" rel="noopener noreferrer">Visit paper page</a>}
@@ -45,7 +53,7 @@ export function PdfReader({ pdfUrl, title, sourceUrl }: PdfReaderProps) {
     </section>
   )
 }
-function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string; onRetry: () => void }) {
+function PdfSession({ file, title, onRetry }: { file: string | Blob; title: string; onRetry: () => void }) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -61,6 +69,7 @@ function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string;
   const inputId = useId()
   const numPages = pdf?.numPages ?? 0
   const ready = Boolean(pdf) && !error
+  const recovery = typeof file === 'string' ? ' Open the source PDF or visit the paper page.' : ' Retry PDF to retrieve it again.'
 
   useLayoutEffect(() => {
     const element = viewport.current
@@ -75,9 +84,9 @@ function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string;
 
   useEffect(() => {
     if (pdf || error) return
-    const timer = window.setTimeout(() => setError('Loading this PDF timed out. Retry or open the source PDF to read it.'), 30_000)
+    const timer = window.setTimeout(() => setError('Loading this PDF timed out.' + recovery), 30_000)
     return () => window.clearTimeout(timer)
-  }, [pdf, error])
+  }, [pdf, error, recovery])
 
   useEffect(() => {
     active.current = true
@@ -130,7 +139,7 @@ function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string;
       }, 30_000)
       downloadUrls.current.set(url, timer)
     } catch {
-      if (active.current) setDownloadError('Download failed. Open the source PDF to save it from the source website.')
+      if (active.current) setDownloadError(typeof file === 'string' ? 'Download failed. Open the source PDF to save it from the source website.' : 'Download failed. Retry PDF and try downloading again.')
     } finally {
       if (active.current) setDownloading(false)
     }
@@ -158,24 +167,27 @@ function PdfSession({ pdfUrl, title, onRetry }: { pdfUrl: string; title: string;
         <button type="button" disabled={!ready || downloading} onClick={() => void download()}>{downloading ? 'Downloading…' : 'Download PDF'}</button>
       </div>
       {pageError && <p id={`${inputId}-error`} role="alert">{pageError}</p>}
-      {downloadError && <p role="alert">{downloadError}</p>}
+      {downloadError && <div className="pdf-reader__error">
+        <p role="alert">{downloadError}</p>
+        {typeof file !== 'string' && !error && <button type="button" onClick={onRetry}>Retry PDF</button>}
+      </div>}
       {error && <div className="pdf-reader__error">
         <p role="alert">{error}</p>
         <button type="button" onClick={onRetry}>Retry PDF</button>
       </div>}
       <div className="pdf-reader__viewport" ref={viewport} tabIndex={0} role="region" aria-label="PDF pages">
-        {!error && <Document file={pdfUrl} suspense={false}
+        {!error && <Document file={file} suspense={false}
           loading={<p role="status">Loading PDF…</p>}
           onLoadSuccess={setPdf}
-          onLoadError={() => setError('Unable to load this PDF. The source may restrict access or the document may be unavailable. Open the source PDF or visit the paper page.')}
-          onSourceError={() => setError('Unable to load this PDF source. Open the source PDF or visit the paper page.')}
-          onPassword={() => setError('This PDF requires a password. Open the source PDF to read it.')}
+          onLoadError={() => setError('Unable to load this PDF. The source may restrict access or the document may be unavailable.' + recovery)}
+          onSourceError={() => setError('Unable to load this PDF source.' + recovery)}
+          onPassword={() => setError(typeof file === 'string' ? 'This PDF requires a password. Open the source PDF to read it.' : 'This PDF requires a password and cannot be read here.')}
           externalLinkTarget="_blank" externalLinkRel="noopener noreferrer"
           onItemClick={({ pageNumber }) => { if (pageNumber && pageNumber >= 1 && pageNumber <= numPages) goToPage(pageNumber) }}>
           {pdf && width > 0 && <Page pageNumber={page} width={width * zoom}
             loading={<p role="status">Loading page…</p>}
-            onLoadError={() => setError('Unable to render this PDF page. Try again or open the source PDF.')}
-            onRenderError={() => setError('Unable to render this PDF page. Try again or open the source PDF.')} />}
+            onLoadError={() => setError('Unable to render this PDF page.' + recovery)}
+            onRenderError={() => setError('Unable to render this PDF page.' + recovery)} />}
         </Document>}
       </div>
     </>

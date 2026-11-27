@@ -50,7 +50,7 @@ flowchart TD
 
 ## Paper Metadata
 
-Browse/Search retrieves OpenAlex metadata. Uploaded-paper details retrieve metadata from the publishing account's PDS. Both use common `PaperMetadata` fields, with source-specific identifiers: short OpenAlex work IDs for `/papers/:paperId`, and DID plus record key for `/publications/:repoDid/:rkey`. Known-record retrieval does not provide global cross-user discovery, which belongs to #30.
+Browse/Search retrieves OpenAlex metadata. Uploaded-paper details retrieve metadata from the publishing account's PDS. Both use common `PaperMetadata` fields, with source-specific identifiers: short OpenAlex work IDs for `/papers/:paperId`, and DID plus record key for `/publications/:repoDid/:rkey`. Community discovery at `/community` uses the relay and public PDS reads from #30; see [Public record discovery](community-discovery.md). Uploaded PDFs use the shared reader through verified Blob inputs (#15), while OpenAlex retains HTTP/HTTPS PDF URLs.
 
 ## Data Storage
 
@@ -68,11 +68,9 @@ Shared bookmarks (#34) and Reading Room posts (#31) remain planned integrations.
 
 ## Cross-User Record Discovery
 
-Since each user's public records are stored in their own PDS, we also need a way to find records from different users.
+Community paper discovery uses the Bluesky relay's repository-by-collection listing, then validates current records from each publisher's resolved PDS. Paper-specific backlinks use Constellation and are verified against current repository records. See [Public record discovery](community-discovery.md) for pagination, partial failures and index limitations.
 
-This is especially important for Reading Rooms. When users open a paper's Reading Room, they should be able to see posts and replies from other researchers discussing the same paper.
-
-We plan to investigate how to retrieve these records across users and whether an indexing service is needed. The exact approach has not been decided yet.
+Reading Room writing remains planned; the existing public record reader can support its later integration.
 
 ## Backend Considerations
 
@@ -87,4 +85,4 @@ This approach helps us:
 
 As we add features like Reading Rooms and cross-user record discovery, we may need additional services to find and retrieve public records across different users' PDS repositories. We will first look into existing AT Protocol services before deciding whether a separate backend or indexing service is necessary.
 
-For other planned features, such as sharing papers to Bluesky and direct messaging, we plan to investigate the available APIs and how they can work with our existing authentication setup.
+Bluesky paper sharing uses the current account and retains retry recovery across refresh/reauthorization; see [Authentication](authentication.md). Direct messaging remains planned.

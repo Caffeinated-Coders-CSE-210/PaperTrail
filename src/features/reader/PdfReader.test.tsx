@@ -60,8 +60,8 @@ describe('unavailable PDF sources', () => {
     expect(screen.queryByRole('button', { name: 'Download PDF' })).toBeNull()
   })
 
-  it('does not create links from unsafe URL schemes', () => {
-    render(<PdfReader pdfUrl="javascript:alert(1)" title="Example" sourceUrl="data:text/html,unsafe" />)
+  it.each(['javascript:alert(1)', 'data:application/pdf,unsafe', 'blob:https://papertrail.test/arbitrary'])('does not create links from unsafe URL scheme %s', (pdfUrl) => {
+    render(<PdfReader pdfUrl={pdfUrl} title="Example" sourceUrl="data:text/html,unsafe" />)
     expect(screen.getByRole('alert').textContent).toMatch(/invalid PDF link/i)
     expect(screen.queryByRole('link')).toBeNull()
   })
@@ -204,6 +204,65 @@ describe('PDF reading', () => {
     await user.click(screen.getByRole('button', { name: 'Download PDF' }))
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/download failed/i))
     expect(screen.getByRole('link', { name: 'Open source PDF' })).toBeTruthy()
+    expect(screen.getByText('Rendered page 1')).toBeTruthy()
+  })
+})
+
+
+describe('verified Blob inputs', () => {
+  it('reads a Blob without accepting a blob URL, preserves the session on rerender and resets for another Blob', async () => {
+    const blob = new Blob(['%PDF-1.4'])
+    const view = render(<PdfReader pdfBlob={blob} title="Uploaded" />)
+    expect(screen.getByText('Rendered page 1')).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Open source PDF' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    view.rerender(<PdfReader pdfBlob={blob} title="Uploaded" />)
+    expect(screen.getByText('Rendered page 2')).toBeTruthy()
+    expect(screen.getByText('125%')).toBeTruthy()
+    view.rerender(<PdfReader pdfBlob={new Blob(['%PDF-other'])} title="Uploaded" />)
+    expect(screen.getByText('Rendered page 1')).toBeTruthy()
+    expect(screen.getByText('100%')).toBeTruthy()
+  })
+
+  it('recovers a Blob download failure through Retry PDF and downloads successfully afterwards', async () => {
+    engine.getData.mockRejectedValueOnce(new Error('Bytes unavailable'))
+    const create = vi.fn(() => 'blob:download')
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = create
+      static revokeObjectURL = vi.fn()
+    })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const user = userEvent.setup()
+    render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" />)
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    await user.click(screen.getByRole('button', { name: 'Download PDF' }))
+    expect(screen.getByRole('alert').textContent).toMatch(/download failed/i)
+    expect((screen.getByRole('button', { name: 'Next page' }) as HTMLButtonElement).disabled).toBe(false)
+    await user.click(screen.getByRole('button', { name: 'Retry PDF' }))
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect((screen.getByRole('textbox', { name: 'Page number' }) as HTMLInputElement).value).toBe('1')
+    await user.click(screen.getByRole('button', { name: 'Download PDF' }))
+    expect(click).toHaveBeenCalledOnce()
+    expect(create).toHaveBeenCalledOnce()
+  })
+
+  it('delegates a Blob download recovery to the publication retrieval owner', async () => {
+    engine.getData.mockRejectedValue(new Error('Bytes unavailable'))
+    const onRetry = vi.fn()
+    render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" onRetry={onRetry} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Download PDF' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Retry PDF' }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  it('retries a failed Blob render', async () => {
+    engine.load = 'error'
+    render(<PdfReader pdfBlob={new Blob(['%PDF-'])} title="Uploaded" />)
+    expect(screen.getByRole('alert').textContent).toMatch(/unable to load/i)
+    expect(screen.getByRole('alert').textContent).not.toMatch(/open the source PDF/i)
+    engine.load = 'success'
+    await userEvent.click(screen.getByRole('button', { name: 'Retry PDF' }))
     expect(screen.getByText('Rendered page 1')).toBeTruthy()
   })
 })

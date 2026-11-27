@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { PublicationRef } from '../../shared/paper'
+import { PdfReader } from '../reader/PdfReader'
 import { SharePaper } from '../sharing/SharePaper'
 import { paperLink } from '../sharing/post'
 import { publicationPath, validatePublicationRef, type Publication } from './model'
@@ -11,33 +12,23 @@ export function PublicationDetailsPage({ service = publicPublicationService, ref
   const params = useParams<'repoDid' | 'rkey'>()
   const repoDid = refOverride?.repoDid ?? params.repoDid ?? ''
   const rkey = refOverride?.rkey ?? params.rkey ?? ''
+  return <PublicationDetails key={JSON.stringify([repoDid, rkey])} repoDid={repoDid} rkey={rkey} service={service} />
+}
+
+function PublicationDetails({ repoDid, rkey, service }: { repoDid: string; rkey: string; service: PublicationService }) {
   const [publication, setPublication] = useState<Publication | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [retry, setRetry] = useState(0)
-  const [pdfStatus, setPdfStatus] = useState<string | null>(null)
-  const [pdfError, setPdfError] = useState<string | null>(null)
-  const [checking, setChecking] = useState(false)
-  const pdfController = useRef<AbortController | null>(null)
   useEffect(() => {
     const controller = new AbortController()
-    setLoading(true); setError(null); setPublication(null); setPdfStatus(null); setPdfError(null); setChecking(false)
+    setLoading(true); setError(null); setPublication(null)
     void (async () => {
       const ref = validatePublicationRef({ source: 'publication', repoDid, rkey })
       return service.getPublication(ref, { signal: controller.signal })
     })().then(value => { if (!controller.signal.aborted) setPublication(value) }, error => { if (!controller.signal.aborted) setError(publicationErrorMessage(error)) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
-    return () => { controller.abort(); pdfController.current?.abort() }
+    return () => controller.abort()
   }, [repoDid, rkey, service, retry])
-  async function checkPdf() {
-    if (!publication || checking) return
-    const controller = new AbortController(); pdfController.current = controller
-    setChecking(true); setPdfError(null); setPdfStatus(null)
-    try {
-      const blob = await service.getPublicationPdf(publication.ref, { signal: controller.signal })
-      if (!controller.signal.aborted) setPdfStatus(`PDF retrieved and verified (${blob.size.toLocaleString()} bytes).`)
-    } catch (error) { if (!controller.signal.aborted) setPdfError(publicationErrorMessage(error)) }
-    finally { if (!controller.signal.aborted) setChecking(false) }
-  }
   const metadata = publication?.metadata
   return <section className="publishing">
     <h1>{metadata?.title ?? 'Publication details'}</h1>
@@ -56,11 +47,34 @@ export function PublicationDetailsPage({ service = publicPublicationService, ref
       <SharePaper key={publication.uri} title={metadata.title} url={paperLink(metadata.url, metadata.doi,
         window.location.protocol === 'https:' ? new URL(publicationPath(publication.ref), window.location.origin).href : 'https://pdsls.dev/' + publication.uri)} />
       <h2>PDF</h2><p>PDF · {publication.pdf.blob.size.toLocaleString()} bytes</p>
-      <button onClick={checkPdf} disabled={checking}>{checking ? 'Checking PDF…' : 'Check PDF availability'}</button>
-      {pdfStatus && <p role="status">{pdfStatus}</p>}
-      {pdfError && <p role="alert">{pdfError}</p>}
-      <p>In-app reading for uploaded papers is planned in the next reading update.</p>
+      <PublicationPdf publication={publication} service={service} />
     </>}
-    <p><Link to="/publications">My publications</Link> · <Link to="/search">Back to Browse</Link></p>
+    <p><Link to="/publications">My publications</Link> · <Link to="/community">Back to community papers</Link></p>
   </section>
+}
+
+function PublicationPdf({ publication, service }: { publication: Publication; service: PublicationService }) {
+  const [blob, setBlob] = useState<Blob | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    setBlob(null); setError(null)
+    const timer = window.setTimeout(() => {
+      controller.abort()
+      setError('Loading this PDF timed out. Please retry.')
+    }, 30_000)
+    void service.getPublicationPdf(publication.ref, { signal: controller.signal }).then(value => {
+      if (!controller.signal.aborted) setBlob(value)
+    }, reason => {
+      if (!controller.signal.aborted) setError(publicationErrorMessage(reason))
+    }).finally(() => window.clearTimeout(timer))
+    return () => { controller.abort(); window.clearTimeout(timer) }
+  }, [publication, service, attempt])
+  const retry = () => setAttempt(value => value + 1)
+  return <>
+    {error ? <><p role="alert">{error}</p><button onClick={retry}>Retry PDF</button></>
+      : blob ? <PdfReader pdfBlob={blob} title={publication.metadata.title} onRetry={retry} />
+        : <p role="status">Loading PDF from publisher…</p>}
+  </>
 }
