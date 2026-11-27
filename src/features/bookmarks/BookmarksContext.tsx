@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Paper, PaperId } from '../../shared/paper'
 import { createLocalBookmarkStorage, type BookmarkImportSource } from './localBookmarks'
 import type { BookmarkStorage } from './storage'
@@ -100,9 +100,12 @@ export function BookmarksProvider({
   const [reloadKey, setReloadKey] = useState(0)
   /** The active account's storage. Async work from an earlier account checks this before touching shared state. */
   const currentStorage = useRef(storage)
+  // Update at commit time. A passive effect runs later, leaving a gap where old async work still looks current.
+  useLayoutEffect(() => {
+    currentStorage.current = storage
+  }, [storage])
 
   useEffect(() => {
-    currentStorage.current = storage
     setPapers([])
     setPending(new Set())
     setImportable([])
@@ -138,12 +141,13 @@ export function BookmarksProvider({
     return () => { active = false }
   }, [storage, importSource, storageError, authPending, reloadKey])
 
-  const track = useCallback(async (id: PaperId, operation: () => Promise<void>) => {
+  /** Marks `id` pending during `operation`. Only clears it while the starting account is still active. */
+  const track = useCallback(async (id: PaperId, operation: () => Promise<void>, isCurrent: () => boolean) => {
     setPending((ids) => new Set(ids).add(id))
     try {
       await operation()
     } finally {
-      setPending((ids) => {
+      if (isCurrent()) setPending((ids) => {
         const next = new Set(ids)
         next.delete(id)
         return next
@@ -171,12 +175,12 @@ export function BookmarksProvider({
       isPending: (id) => pending.has(id),
       async savePaper(paper) {
         if (!ready) return signedOut()
-        await track(paper.id, () => ready.savePaper(paper))
+        await track(paper.id, () => ready.savePaper(paper), isCurrent)
         if (isCurrent()) addPaper(paper)
       },
       async removePaper(id) {
         if (!ready) return signedOut()
-        await track(id, () => ready.removeSavedPaper(id))
+        await track(id, () => ready.removeSavedPaper(id), isCurrent)
         if (isCurrent()) setPapers((current) => current.filter((saved) => saved.id !== id))
       },
       reload: () => {
