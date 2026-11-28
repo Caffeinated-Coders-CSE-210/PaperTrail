@@ -12,9 +12,7 @@ export function BookmarkButton({ paper }: { paper: Paper }) {
 
   if (status === 'signed-out') {
     return (
-      <p className="bookmarks-action bookmarks-hint">
-        <Link to="/">Sign in</Link> to bookmark this paper.
-      </p>
+      <p><Link to="/">Sign in to bookmark this paper</Link></p>
     )
   }
 

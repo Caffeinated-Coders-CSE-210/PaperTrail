@@ -229,12 +229,19 @@ export function BookmarksProvider({
           for (const paper of [...browserOnly].reverse()) {
             // Stop if the account changed; this loop's storage and source belong to the earlier account.
             if (!isCurrent()) return
-            await ready.savePaper(paper)
-            // The upload finished, so clear it from that account's browser list even if the account changed.
-            await browser.remove(paper.id)
+            // Skip papers the user removed while earlier ones uploaded, so they aren't published anyway.
+            const stillInBrowser = (await browser.list()).some((local) => local.id === paper.id)
             if (!isCurrent()) return
-            addPaper(paper)
-            dropBrowserPaper(paper.id)
+            if (!stillInBrowser) continue
+            // Pending disables this paper's Remove button while its save is in flight.
+            await track(paper.id, async () => {
+              await ready.savePaper(paper)
+              // Record the account copy first, so a failed cleanup can't make it look browser-only.
+              if (isCurrent()) addPaper(paper)
+              // Clear that account's browser copy even if the account changed. Keep it if cleanup fails;
+              // it's hidden because the paper is now on the account.
+              await browser.remove(paper.id).then(() => { if (isCurrent()) dropBrowserPaper(paper.id) }, () => {})
+            }, isCurrent)
           }
         } finally {
           if (isCurrent()) setUploading(false)

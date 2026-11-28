@@ -34,7 +34,7 @@ main .bookmarks-meta { margin: 0.35rem 0 0; font-size: 0.95rem; opacity: 0.8; }
 .bookmarks-remove { flex-shrink: 0; }
 
 .bookmarks-error { color: #8d302c; }
-main .bookmarks-note, .bookmarks-hint { font-size: 0.9rem; opacity: 0.8; }
+main .bookmarks-note { font-size: 0.9rem; opacity: 0.8; }
 
 .bookmarks-import {
   margin: 0 0 2rem; padding: 1rem 1.25rem;
