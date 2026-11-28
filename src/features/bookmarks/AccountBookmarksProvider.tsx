@@ -1,12 +1,29 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useAuth } from '../auth/AuthProvider'
-import { BookmarksProvider } from './BookmarksContext'
+import type { FetchHandler } from '../auth/session'
+import { createRepositoryClient } from '../repository/client'
+import { BookmarksProvider, localBookmarkBackend, type BookmarkBackend } from './BookmarksContext'
+import { createBrowserBookmarkSource } from './localBookmarks'
+import { createPdsBookmarkStorage } from './pdsBookmarks'
+
+/** Signed-in bookmarks live in the account's PDS. Older browser bookmarks are offered for upload. */
+export function pdsBookmarkBackend(fetchHandler: FetchHandler): BookmarkBackend {
+  return {
+    isLocal: false,
+    create: (did) => createPdsBookmarkStorage(createRepositoryClient(did, fetchHandler)),
+    browserBookmarks: (did) => createBrowserBookmarkSource(did),
+  }
+}
 
 /** Connects bookmarks to the signed-in AT Protocol account. Mount inside `AuthProvider`. */
 export function AccountBookmarksProvider({ children }: { children: ReactNode }) {
-  const { identity, pending } = useAuth()
+  const { identity, pending, fetchHandler } = useAuth()
+  const backend = useMemo(
+    () => (fetchHandler ? pdsBookmarkBackend(fetchHandler) : localBookmarkBackend),
+    [fetchHandler],
+  )
   return (
-    <BookmarksProvider accountDid={identity?.did ?? null} authPending={pending === 'restore'}>
+    <BookmarksProvider accountDid={identity?.did ?? null} authPending={pending === 'restore'} backend={backend}>
       {children}
     </BookmarksProvider>
   )

@@ -69,7 +69,7 @@ test('retry recreates storage after synchronous creation failure', async () => {
 
 test('signed-out users are asked to sign in instead of seeing the button', () => {
   renderWith(<BookmarkButton paper={makePaper()} />, memoryBackend().backend, null)
-  expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Sign in to bookmark this paper' })).toBeTruthy()
   expect(screen.queryByRole('button')).toBeNull()
 })
 

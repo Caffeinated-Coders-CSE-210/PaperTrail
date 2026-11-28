@@ -69,5 +69,6 @@ test('shows a lookup error and retains the Browse link', async () => {
 test('shows likes for the loaded paper', async () => {
   setup(vi.fn(async () => makePaper()))
   expect(await screen.findByText('5 likes')).toBeTruthy()
-  expect(screen.getAllByRole('link', { name: 'Sign in' })).toHaveLength(2)
+  expect(screen.getByRole('link', { name: 'Sign in' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Sign in to bookmark this paper' })).toBeTruthy()
 })

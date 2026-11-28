@@ -1,4 +1,4 @@
-import type { Paper } from '../../shared/paper'
+import type { Paper, PaperId } from '../../shared/paper'
 import type { BookmarkStorage } from './storage'
 
 type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>
@@ -56,6 +56,41 @@ export function createLocalBookmarkStorage(
 
     async removeSavedPaper(id) {
       write(read().filter((saved) => saved.id !== id))
+    },
+  }
+}
+
+/**
+ * Bookmarks saved only in this browser, kept separate from the account's public bookmarks.
+ * They stay listed until the user uploads or removes them.
+ */
+export interface BrowserBookmarkSource {
+  /** Newest first. */
+  list(): Promise<Paper[]>
+  /** Removes a bookmark from this browser, after uploading it or when the user deletes it. */
+  remove(id: PaperId): Promise<void>
+  /** Whether the user chose to keep these bookmarks private, which hides the upload prompt. */
+  isKeptLocal(): Promise<boolean>
+  keepLocal(): Promise<void>
+}
+
+export function keptLocalKey(did: string) {
+  return `papertrail.bookmarks.kept-local.v1:${did}`
+}
+
+export function createBrowserBookmarkSource(
+  did: string,
+  store: KeyValueStore = localStorage,
+): BrowserBookmarkSource {
+  const local = createLocalBookmarkStorage(did, store)
+  return {
+    list: () => local.listSavedPapers(),
+    remove: (id) => local.removeSavedPaper(id),
+    async isKeptLocal() {
+      return store.getItem(keptLocalKey(did)) === 'true'
+    },
+    async keepLocal() {
+      store.setItem(keptLocalKey(did), 'true')
     },
   }
 }
