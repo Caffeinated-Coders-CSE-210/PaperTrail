@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createRepositoryClient, PdsError } from '../repository/client.ts'
 import { BOOKMARK_COLLECTION, bookmarkRecord, parseBookmark } from './lexicon.ts'
-import { createLocalImportSource, createLocalBookmarkStorage } from './localBookmarks.ts'
+import { createBrowserBookmarkSource, createLocalBookmarkStorage } from './localBookmarks.ts'
 import { createPdsBookmarkStorage } from './pdsBookmarks.ts'
 
 const did = 'did:plc:aaaaaaaaaaaaaaaaaaaaaaaa'
@@ -102,21 +102,22 @@ test('load failures reject so the saved page can offer a retry', async () => {
   await assert.rejects(pds.storage.listSavedPapers(), PdsError)
 })
 
-test('the import source offers local bookmarks until they are uploaded or kept private', async () => {
+test('browser bookmarks stay listed after the user keeps them private', async () => {
   const store = memoryStore()
   const local = createLocalBookmarkStorage(did, store)
   await local.savePaper(paper('W1'))
   await local.savePaper(paper('W2'))
 
-  const source = createLocalImportSource(did, store)
-  assert.deepEqual((await source.listPending()).map(({ id }) => id), ['W2', 'W1'])
-  await source.markUploaded('W2')
-  assert.deepEqual((await source.listPending()).map(({ id }) => id), ['W1'])
+  const source = createBrowserBookmarkSource(did, store)
+  assert.deepEqual((await source.list()).map(({ id }) => id), ['W2', 'W1'])
+  assert.equal(await source.isKeptLocal(), false)
+  await source.remove('W2')
+  assert.deepEqual((await source.list()).map(({ id }) => id), ['W1'])
 
   await source.keepLocal()
-  assert.deepEqual(await source.listPending(), [])
-  assert.deepEqual((await local.listSavedPapers()).map(({ id }) => id), ['W1'], 'kept bookmarks stay in this browser')
-  assert.deepEqual(await createLocalImportSource('did:plc:bbbbbbbbbbbbbbbbbbbbbbbb', store).listPending(), [])
+  assert.equal(await source.isKeptLocal(), true)
+  assert.deepEqual((await source.list()).map(({ id }) => id), ['W1'], 'kept bookmarks remain available')
+  assert.equal(await createBrowserBookmarkSource('did:plc:bbbbbbbbbbbbbbbbbbbbbbbb', store).isKeptLocal(), false)
 })
 
 test('an account with more bookmarks than the page limit fails visibly instead of hiding older ones', async () => {

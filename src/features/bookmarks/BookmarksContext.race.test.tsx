@@ -8,7 +8,7 @@ import type { Paper } from '../../shared/paper'
 import { makePaper } from '../discovery/testFixtures'
 import { BookmarkButton } from './BookmarkButton'
 import { BookmarksProvider, type BookmarkBackend } from './BookmarksContext'
-import type { BookmarkImportSource } from './localBookmarks'
+import type { BrowserBookmarkSource } from './localBookmarks'
 import { SavedPage } from './SavedPage'
 import type { BookmarkStorage } from './storage'
 
@@ -33,11 +33,12 @@ function heldStorage() {
   return { storage, saved, release: () => releases.shift()?.(), saveCalls: () => saveCalls }
 }
 
-function importSource(local: Paper[], onMarkUploaded = () => {}): BookmarkImportSource {
+function browserSource(local: Paper[], onRemove = () => {}): BrowserBookmarkSource {
   return {
-    async listPending() { return [...local] },
-    async markUploaded(id) {
-      onMarkUploaded()
+    async list() { return [...local] },
+    async isKeptLocal() { return false },
+    async remove(id) {
+      onRemove()
       local.splice(local.findIndex((paper) => paper.id === id) >>> 0, 1)
     },
     async keepLocal() {},
@@ -68,8 +69,8 @@ test('an upload cannot start another save in the gap after the new account commi
     const backend: BookmarkBackend = {
       isLocal: false,
       create: (did) => (did === first ? held.storage : heldStorage().storage),
-      // The loop calls markUploaded as soon as the held save resolves, before checking the account.
-      importSource: (did) => importSource(did === first ? local : [], () => { resumedBeforePassive ??= !passiveRan }),
+      // The loop removes the browser copy as soon as the held save resolves, before checking the account.
+      browserBookmarks: (did) => browserSource(did === first ? local : [], () => { resumedBeforePassive ??= !passiveRan }),
     }
     const page = (did: string, extra?: ReactNode) => (
       <MemoryRouter>

@@ -60,33 +60,37 @@ export function createLocalBookmarkStorage(
   }
 }
 
-/** Browser bookmarks waiting for the user to upload them to their account or keep them private. */
-export interface BookmarkImportSource {
-  /** Local bookmarks to offer for upload, newest first. Empty once the user keeps them private. */
-  listPending(): Promise<Paper[]>
-  /** Removes a bookmark from this browser after it reaches the account. */
-  markUploaded(id: PaperId): Promise<void>
-  /** Keeps the remaining bookmarks in this browser and stops offering them. */
+/**
+ * Bookmarks saved only in this browser, kept separate from the account's public bookmarks.
+ * They stay listed until the user uploads or removes them.
+ */
+export interface BrowserBookmarkSource {
+  /** Newest first. */
+  list(): Promise<Paper[]>
+  /** Removes a bookmark from this browser, after uploading it or when the user deletes it. */
+  remove(id: PaperId): Promise<void>
+  /** Whether the user chose to keep these bookmarks private, which hides the upload prompt. */
+  isKeptLocal(): Promise<boolean>
   keepLocal(): Promise<void>
 }
 
-export function importDismissedKey(did: string) {
-  return `papertrail.bookmarks.import-dismissed.v1:${did}`
+export function keptLocalKey(did: string) {
+  return `papertrail.bookmarks.kept-local.v1:${did}`
 }
 
-export function createLocalImportSource(
+export function createBrowserBookmarkSource(
   did: string,
   store: KeyValueStore = localStorage,
-): BookmarkImportSource {
+): BrowserBookmarkSource {
   const local = createLocalBookmarkStorage(did, store)
   return {
-    async listPending() {
-      if (store.getItem(importDismissedKey(did)) === 'true') return []
-      return local.listSavedPapers()
+    list: () => local.listSavedPapers(),
+    remove: (id) => local.removeSavedPaper(id),
+    async isKeptLocal() {
+      return store.getItem(keptLocalKey(did)) === 'true'
     },
-    markUploaded: (id) => local.removeSavedPaper(id),
     async keepLocal() {
-      store.setItem(importDismissedKey(did), 'true')
+      store.setItem(keptLocalKey(did), 'true')
     },
   }
 }

@@ -8,7 +8,7 @@ import { makePaper } from '../discovery/testFixtures'
 import { PdsError } from '../repository/client'
 import { BookmarkButton } from './BookmarkButton'
 import { BookmarksProvider, type BookmarkBackend } from './BookmarksContext'
-import type { BookmarkImportSource } from './localBookmarks'
+import type { BrowserBookmarkSource } from './localBookmarks'
 import { SavedPage } from './SavedPage'
 import type { BookmarkStorage } from './storage'
 
@@ -19,10 +19,10 @@ const older = makePaper({ id: 'W1', title: 'Older local paper' })
 const newer = makePaper({ id: 'W2', title: 'Newer local paper' })
 
 /** Account storage plus browser bookmarks, mirroring the signed-in PDS backend. */
-function accountBackend(options: { local?: Paper[]; failSaveOf?: PaperId; saveError?: Error } = {}) {
+function accountBackend(options: { local?: Paper[]; keptLocal?: boolean; failSaveOf?: PaperId; saveError?: Error } = {}) {
   const account: Paper[] = []
   const local = [...(options.local ?? [])]
-  let keptLocal = false
+  let keptLocal = options.keptLocal ?? false
   const storage: BookmarkStorage = {
     async listSavedPapers() { return [...account] },
     async savePaper(paper) {
@@ -32,12 +32,13 @@ function accountBackend(options: { local?: Paper[]; failSaveOf?: PaperId; saveEr
     },
     async removeSavedPaper(id) { account.splice(account.findIndex((paper) => paper.id === id) >>> 0, 1) },
   }
-  const source: BookmarkImportSource = {
-    async listPending() { return keptLocal ? [] : [...local] },
-    async markUploaded(id) { local.splice(local.findIndex((paper) => paper.id === id) >>> 0, 1) },
+  const source: BrowserBookmarkSource = {
+    async list() { return [...local] },
+    async remove(id) { local.splice(local.findIndex((paper) => paper.id === id) >>> 0, 1) },
+    async isKeptLocal() { return keptLocal },
     async keepLocal() { keptLocal = true },
   }
-  const backend: BookmarkBackend = { isLocal: false, create: () => storage, importSource: () => source }
+  const backend: BookmarkBackend = { isLocal: false, create: () => storage, browserBookmarks: () => source }
   return { backend, account, local, isKeptLocal: () => keptLocal }
 }
 
@@ -74,16 +75,56 @@ test('uploading moves browser bookmarks to the account, keeping newest first', a
   expect(titles.indexOf('Newer local paper')).toBeLessThan(titles.indexOf('Older local paper'))
 })
 
-test('keeping bookmarks private leaves them in the browser and hides the offer', async () => {
+test('keeping bookmarks private keeps them listed, with a way to upload later', async () => {
   const user = userEvent.setup()
   const { backend, account, local, isKeptLocal } = accountBackend({ local: [older] })
-  renderWith(<SavedPage />, backend)
+  const view = renderWith(<SavedPage />, backend)
 
   await user.click(await screen.findByRole('button', { name: 'Keep in this browser only' }))
 
-  expect(screen.queryByRole('heading', { name: 'Bookmarks in this browser' })).toBeNull()
   expect(isKeptLocal()).toBe(true)
   expect(local).toEqual([older])
+  expect(account).toEqual([])
+  expect(screen.getByRole('heading', { name: 'Bookmarks in this browser' })).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'Older local paper' }).getAttribute('href')).toBe('/papers/W1')
+  expect(screen.getByText(/stays private to this browser/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Keep in this browser only' })).toBeNull()
+
+  // The choice persists, and the bookmark can still be uploaded later.
+  view.unmount()
+  renderWith(<SavedPage />, backend)
+  expect(await screen.findByRole('link', { name: 'Older local paper' })).toBeTruthy()
+  expect(screen.getByText(/stays private to this browser/)).toBeTruthy()
+  await user.click(screen.getByRole('button', { name: 'Upload 1 bookmark' }))
+
+  expect(await screen.findByText('1 saved paper')).toBeTruthy()
+  expect(account).toEqual([older])
+  expect(local).toEqual([])
+  expect(screen.queryByRole('heading', { name: 'Bookmarks in this browser' })).toBeNull()
+})
+
+test('browser bookmarks can be removed from the saved page', async () => {
+  const user = userEvent.setup()
+  const { backend, account, local } = accountBackend({ local: [newer, older], keptLocal: true })
+  renderWith(<SavedPage />, backend)
+
+  await user.click(await screen.findByRole('button', { name: 'Remove “Older local paper” from saved papers' }))
+
+  expect(local).toEqual([newer])
+  expect(account).toEqual([])
+  expect(screen.queryByRole('link', { name: 'Older local paper' })).toBeNull()
+  expect(screen.getByRole('link', { name: 'Newer local paper' })).toBeTruthy()
+})
+
+test('the details button shows browser bookmarks as saved and removes them from the browser', async () => {
+  const user = userEvent.setup()
+  const { backend, account, local } = accountBackend({ local: [older], keptLocal: true })
+  renderWith(<BookmarkButton paper={older} />, backend)
+
+  await user.click(await screen.findByRole('button', { name: 'Bookmarked' }))
+
+  expect(await screen.findByRole('button', { name: 'Bookmark' })).toBeTruthy()
+  expect(local).toEqual([])
   expect(account).toEqual([])
 })
 
@@ -130,7 +171,7 @@ test('switching accounts mid-upload stops the upload and keeps it out of the new
   const switching: BookmarkBackend = {
     isLocal: false,
     create: (account) => (account === did ? slowStorage : other.backend.create(account)),
-    importSource: (account) => (account === did ? backend.importSource!(account) : other.backend.importSource!(account)),
+    browserBookmarks: (account) => (account === did ? backend.browserBookmarks!(account) : other.backend.browserBookmarks!(account)),
   }
   const page = (accountDid: string) => (
     <MemoryRouter>

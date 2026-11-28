@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { Paper, PaperId } from '../../shared/paper'
-import { createLocalBookmarkStorage, type BookmarkImportSource } from './localBookmarks'
+import { createLocalBookmarkStorage, type BrowserBookmarkSource } from './localBookmarks'
 import type { BookmarkStorage } from './storage'
 
 /** How bookmarks are stored for an account. `isLocal` storage must be disclosed in the UI. */
 export interface BookmarkBackend {
   isLocal: boolean
   create(did: string): BookmarkStorage
-  /** Browser bookmarks the user may upload. Only account-backed storage offers this. */
-  importSource?(did: string): BookmarkImportSource
+  /** Private bookmarks kept in this browser alongside account storage. */
+  browserBookmarks?(did: string): BrowserBookmarkSource
 }
 
 export const localBookmarkBackend: BookmarkBackend = {
@@ -22,23 +22,25 @@ interface BookmarksValue {
   status: BookmarksStatus
   /** Why loading failed, for `bookmarkErrorMessage`. `null` unless `status` is `error`. */
   loadError: unknown
-  /** Saved papers, newest first. Empty unless `status` is `ready`. */
+  /** Bookmarks in the account's storage, newest first. Empty unless `status` is `ready`. */
   papers: Paper[]
   isLocal: boolean
+  /** Saved in the account or in this browser. */
   isSaved(id: PaperId): boolean
   isPending(id: PaperId): boolean
-  /** Rejects if the paper could not be saved. */
+  /** Saves to the account and drops any browser copy. Rejects if the paper could not be saved. */
   savePaper(paper: Paper): Promise<void>
-  /** Rejects if the bookmark could not be removed. */
+  /** Removes the bookmark wherever it is saved. Rejects if it could not be removed. */
   removePaper(id: PaperId): Promise<void>
   reload(): void
-  /** Browser-only bookmarks the user hasn't uploaded or kept private yet. */
-  importable: Paper[]
-  importing: boolean
-  /** Uploads `importable` to the account. Rejects on the first failure; uploaded papers stay uploaded. */
-  importLocalBookmarks(): Promise<void>
-  /** Leaves `importable` in this browser and stops offering the upload. */
-  keepLocalBookmarks(): Promise<void>
+  /** Bookmarks saved only in this browser, newest first. */
+  browserPapers: Paper[]
+  /** The user chose to keep `browserPapers` private, so the upload prompt is hidden. */
+  keptLocal: boolean
+  uploading: boolean
+  /** Uploads `browserPapers` to the account. Rejects on the first failure; uploaded papers stay uploaded. */
+  uploadBrowserBookmarks(): Promise<void>
+  keepBrowserBookmarks(): Promise<void>
 }
 
 const signedOut = async () => { throw new Error('Sign in to manage bookmarks') }
@@ -54,10 +56,11 @@ const BookmarksContext = createContext<BookmarksValue>({
   savePaper: signedOut,
   removePaper: signedOut,
   reload: () => {},
-  importable: [],
-  importing: false,
-  importLocalBookmarks: signedOut,
-  keepLocalBookmarks: signedOut,
+  browserPapers: [],
+  keptLocal: false,
+  uploading: false,
+  uploadBrowserBookmarks: signedOut,
+  keepBrowserBookmarks: signedOut,
 })
 
 /**
@@ -77,16 +80,16 @@ export function BookmarksProvider({
   children: ReactNode
 }) {
   const [creationRetryKey, setCreationRetryKey] = useState(0)
-  const { storage, importSource, storageError } = useMemo(() => {
-    if (!accountDid) return { storage: null, importSource: null, storageError: null }
+  const { storage, browser, storageError } = useMemo(() => {
+    if (!accountDid) return { storage: null, browser: null, storageError: null }
     try {
       return {
         storage: backend.create(accountDid),
-        importSource: backend.importSource?.(accountDid) ?? null,
+        browser: backend.browserBookmarks?.(accountDid) ?? null,
         storageError: null,
       }
     } catch (error) {
-      return { storage: null, importSource: null, storageError: error ?? new Error('Bookmarks unavailable') }
+      return { storage: null, browser: null, storageError: error ?? new Error('Bookmarks unavailable') }
     }
   }, [accountDid, backend, creationRetryKey])
   const [papers, setPapers] = useState<Paper[]>([])
@@ -95,8 +98,9 @@ export function BookmarksProvider({
   )
   const [loadError, setLoadError] = useState<unknown>(storageError)
   const [pending, setPending] = useState<ReadonlySet<PaperId>>(new Set())
-  const [importable, setImportable] = useState<Paper[]>([])
-  const [importing, setImporting] = useState(false)
+  const [browserPapers, setBrowserPapers] = useState<Paper[]>([])
+  const [keptLocal, setKeptLocal] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   /** The active account's storage. Async work from an earlier account checks this before touching shared state. */
   const currentStorage = useRef(storage)
@@ -108,8 +112,9 @@ export function BookmarksProvider({
   useEffect(() => {
     setPapers([])
     setPending(new Set())
-    setImportable([])
-    setImporting(false)
+    setBrowserPapers([])
+    setKeptLocal(false)
+    setUploading(false)
     setLoadError(storageError)
     if (storageError) {
       setStatus('error')
@@ -133,13 +138,19 @@ export function BookmarksProvider({
         setStatus('error')
       },
     )
-    // A broken browser store shouldn't block the account library, so a failure just skips the offer.
-    importSource?.listPending().then(
-      (local) => { if (active) setImportable(local) },
-      () => {},
-    )
+    // A broken browser store shouldn't block the account library, so a failure just shows no browser bookmarks.
+    if (browser) {
+      Promise.all([browser.list(), browser.isKeptLocal()]).then(
+        ([local, kept]) => {
+          if (!active) return
+          setBrowserPapers(local)
+          setKeptLocal(kept)
+        },
+        () => {},
+      )
+    }
     return () => { active = false }
-  }, [storage, importSource, storageError, authPending, reloadKey])
+  }, [storage, browser, storageError, authPending, reloadKey])
 
   /** Marks `id` pending during `operation`. Only clears it while the starting account is still active. */
   const track = useCallback(async (id: PaperId, operation: () => Promise<void>, isCurrent: () => boolean) => {
@@ -156,7 +167,10 @@ export function BookmarksProvider({
   }, [])
 
   const value = useMemo<BookmarksValue>(() => {
-    const savedIds = new Set(papers.map((paper) => paper.id))
+    const accountIds = new Set(papers.map((paper) => paper.id))
+    // A paper saved in both places (e.g. from another device) is shown once, as an account bookmark.
+    const browserOnly = browserPapers.filter((paper) => !accountIds.has(paper.id))
+    const browserIds = new Set(browserOnly.map((paper) => paper.id))
     const ready = storage && status === 'ready' ? storage : null
     const isCurrent = () => ready !== null && currentStorage.current === ready
 
@@ -166,55 +180,73 @@ export function BookmarksProvider({
         : [paper, ...current]))
     }
 
+    function dropBrowserPaper(id: PaperId) {
+      setBrowserPapers((current) => current.filter((paper) => paper.id !== id))
+    }
+
     return {
       status,
       loadError,
       papers,
       isLocal: backend.isLocal,
-      isSaved: (id) => savedIds.has(id),
+      isSaved: (id) => accountIds.has(id) || browserIds.has(id),
       isPending: (id) => pending.has(id),
       async savePaper(paper) {
         if (!ready) return signedOut()
-        await track(paper.id, () => ready.savePaper(paper), isCurrent)
+        await track(paper.id, async () => {
+          await ready.savePaper(paper)
+          // The account copy now exists, so a leftover browser copy is redundant. Keep it if cleanup fails.
+          if (browser && browserPapers.some((local) => local.id === paper.id)) {
+            await browser.remove(paper.id).then(() => { if (isCurrent()) dropBrowserPaper(paper.id) }, () => {})
+          }
+        }, isCurrent)
         if (isCurrent()) addPaper(paper)
       },
       async removePaper(id) {
         if (!ready) return signedOut()
-        await track(id, () => ready.removeSavedPaper(id), isCurrent)
-        if (isCurrent()) setPapers((current) => current.filter((saved) => saved.id !== id))
+        const inAccount = accountIds.has(id)
+        const inBrowser = browser !== null && browserPapers.some((local) => local.id === id)
+        await track(id, async () => {
+          if (inAccount) await ready.removeSavedPaper(id)
+          if (inBrowser) await browser.remove(id)
+        }, isCurrent)
+        if (!isCurrent()) return
+        if (inAccount) setPapers((current) => current.filter((saved) => saved.id !== id))
+        if (inBrowser) dropBrowserPaper(id)
       },
       reload: () => {
         if (storageError) setCreationRetryKey((key) => key + 1)
         else setReloadKey((key) => key + 1)
       },
-      importable,
-      importing,
-      async importLocalBookmarks() {
-        if (!ready || !importSource || importing) return signedOut()
-        setImporting(true)
+      browserPapers: browserOnly,
+      keptLocal,
+      uploading,
+      async uploadBrowserBookmarks() {
+        if (!ready || !browser || uploading) return signedOut()
+        setUploading(true)
         try {
-          // Oldest first, so the newest local bookmark gets the newest timestamp.
-          for (const paper of [...importable].reverse()) {
+          // Oldest first, so the newest browser bookmark gets the newest timestamp.
+          for (const paper of [...browserOnly].reverse()) {
             // Stop if the account changed; this loop's storage and source belong to the earlier account.
             if (!isCurrent()) return
             await ready.savePaper(paper)
             // The upload finished, so clear it from that account's browser list even if the account changed.
-            await importSource.markUploaded(paper.id)
+            await browser.remove(paper.id)
             if (!isCurrent()) return
             addPaper(paper)
-            setImportable((current) => current.filter((local) => local.id !== paper.id))
+            dropBrowserPaper(paper.id)
           }
         } finally {
-          if (isCurrent()) setImporting(false)
+          if (isCurrent()) setUploading(false)
         }
       },
-      async keepLocalBookmarks() {
-        if (!importSource) return signedOut()
-        await importSource.keepLocal()
-        setImportable([])
+      async keepBrowserBookmarks() {
+        if (!browser) return signedOut()
+        await browser.keepLocal()
+        if (isCurrent()) setKeptLocal(true)
       },
     }
-  }, [status, loadError, papers, pending, storage, importSource, storageError, backend.isLocal, track, importable, importing])
+  }, [status, loadError, papers, pending, storage, browser, storageError, backend.isLocal, track, browserPapers, keptLocal, uploading])
 
   return <BookmarksContext value={value}>{children}</BookmarksContext>
 }

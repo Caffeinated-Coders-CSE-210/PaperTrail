@@ -12,13 +12,53 @@ function byline(paper: Paper) {
   return [authors || 'Unknown authors', paper.year].filter(Boolean).join(' · ')
 }
 
-/** Asks before uploading browser-only bookmarks, because account bookmarks are public. */
-function ImportPrompt() {
-  const { importable, importing, importLocalBookmarks, keepLocalBookmarks } = useBookmarks()
-  const [error, setError] = useState<string | null>(null)
-  if (!importable.length) return null
+/** A saved paper with a remove button. Reports a failed removal through `onError`. */
+function SavedPaperList({ papers, onError }: { papers: Paper[]; onError: (message: string | null) => void }) {
+  const { isPending, removePaper } = useBookmarks()
 
-  const count = importable.length === 1 ? '1 bookmark' : `${importable.length} bookmarks`
+  async function remove(paper: Paper) {
+    onError(null)
+    try {
+      await removePaper(paper.id)
+    } catch (reason) {
+      onError(bookmarkErrorMessage(reason, `Could not remove “${paper.title}”. Try again.`))
+    }
+  }
+
+  return (
+    <ul className="bookmarks-list">
+      {papers.map((paper) => (
+        <li key={paper.id} className="bookmarks-item">
+          <div>
+            <Link className="bookmarks-title" to={paperPath(paper.id)}>{paper.title}</Link>
+            <p className="bookmarks-meta">{byline(paper)}</p>
+          </div>
+          <button
+            type="button"
+            className="bookmarks-remove"
+            disabled={isPending(paper.id)}
+            onClick={() => remove(paper)}
+            aria-label={`Remove “${paper.title}” from saved papers`}
+          >
+            {isPending(paper.id) ? 'Removing…' : 'Remove'}
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Lists bookmarks saved only in this browser. Asks once whether to upload them, because account
+ * bookmarks are public; after the user keeps them private, they stay listed with a way to upload later.
+ */
+function BrowserBookmarks() {
+  const { browserPapers, keptLocal, uploading, uploadBrowserBookmarks, keepBrowserBookmarks } = useBookmarks()
+  const [error, setError] = useState<string | null>(null)
+  if (!browserPapers.length) return null
+
+  const one = browserPapers.length === 1
+  const count = one ? '1 bookmark' : `${browserPapers.length} bookmarks`
 
   async function run(action: () => Promise<void>, fallback: string) {
     setError(null)
@@ -32,46 +72,46 @@ function ImportPrompt() {
   return (
     <section className="bookmarks-import" aria-labelledby="bookmarks-import-heading">
       <h2 id="bookmarks-import-heading">Bookmarks in this browser</h2>
-      <p>
-        You have {count} saved only in this browser. Upload {importable.length === 1 ? 'it' : 'them'} to
-        your AT Protocol account to see {importable.length === 1 ? 'it' : 'them'} on other devices.
-        Bookmarks on your account are public.
-      </p>
+      {keptLocal ? (
+        <p>
+          {one ? 'This bookmark stays' : 'These bookmarks stay'} private to this browser and {one ? 'isn’t' : 'aren’t'} on
+          your account. You can upload {one ? 'it' : 'them'} at any time. Bookmarks on your account are public.
+        </p>
+      ) : (
+        <p>
+          You have {count} saved only in this browser. Upload {one ? 'it' : 'them'} to your AT Protocol account to
+          see {one ? 'it' : 'them'} on other devices. Bookmarks on your account are public.
+        </p>
+      )}
       <div className="bookmarks-import-actions">
         <button
           type="button"
           className="bookmarks-toggle"
-          disabled={importing}
-          onClick={() => run(importLocalBookmarks, 'Some bookmarks could not be uploaded. Try again.')}
+          disabled={uploading}
+          onClick={() => run(uploadBrowserBookmarks, 'Some bookmarks could not be uploaded. Try again.')}
         >
-          {importing ? 'Uploading…' : `Upload ${count}`}
+          {uploading ? 'Uploading…' : `Upload ${count}`}
         </button>
-        <button
-          type="button"
-          className="bookmarks-link-button"
-          disabled={importing}
-          onClick={() => run(keepLocalBookmarks, 'Could not save your choice. Try again.')}
-        >
-          Keep in this browser only
-        </button>
+        {keptLocal ? null : (
+          <button
+            type="button"
+            className="bookmarks-link-button"
+            disabled={uploading}
+            onClick={() => run(keepBrowserBookmarks, 'Could not save your choice. Try again.')}
+          >
+            Keep in this browser only
+          </button>
+        )}
       </div>
       {error ? <p className="bookmarks-error" role="alert">{error}</p> : null}
+      <SavedPaperList papers={browserPapers} onError={setError} />
     </section>
   )
 }
 
 export function SavedPage() {
-  const { status, loadError, papers, isLocal, isPending, removePaper, reload } = useBookmarks()
+  const { status, loadError, papers, browserPapers, isLocal, reload } = useBookmarks()
   const [error, setError] = useState<string | null>(null)
-
-  async function remove(paper: Paper) {
-    setError(null)
-    try {
-      await removePaper(paper.id)
-    } catch (reason) {
-      setError(bookmarkErrorMessage(reason, `Could not remove “${paper.title}”. Try again.`))
-    }
-  }
 
   return (
     <>
@@ -88,32 +128,16 @@ export function SavedPage() {
         </p>
       ) : (
         <>
-          <ImportPrompt />
+          <BrowserBookmarks />
           {papers.length === 0 ? (
-            <p>You haven’t bookmarked any papers yet. <Link to="/search">Explore papers →</Link></p>
+            browserPapers.length === 0
+              ? <p>You haven’t bookmarked any papers yet. <Link to="/search">Explore papers →</Link></p>
+              : null
           ) : (
             <>
               <p role="status">{papers.length === 1 ? '1 saved paper' : `${papers.length} saved papers`}</p>
               {error ? <p className="bookmarks-error" role="alert">{error}</p> : null}
-              <ul className="bookmarks-list">
-                {papers.map((paper) => (
-                  <li key={paper.id} className="bookmarks-item">
-                    <div>
-                      <Link className="bookmarks-title" to={paperPath(paper.id)}>{paper.title}</Link>
-                      <p className="bookmarks-meta">{byline(paper)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="bookmarks-remove"
-                      disabled={isPending(paper.id)}
-                      onClick={() => remove(paper)}
-                      aria-label={`Remove “${paper.title}” from saved papers`}
-                    >
-                      {isPending(paper.id) ? 'Removing…' : 'Remove'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <SavedPaperList papers={papers} onError={setError} />
             </>
           )}
         </>
